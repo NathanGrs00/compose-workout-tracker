@@ -24,12 +24,12 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     // Supabase
-    implementation(platform("io.github.jan-tennert.supabase:bom:2.6.1"))
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.1.4"))
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
-    implementation("io.github.jan-tennert.supabase:gotrue-kt")
+    implementation("io.github.jan-tennert.supabase:auth-kt")
 
     // Ktor engine (required by Supabase)
-    implementation("io.ktor:ktor-client-cio:2.3.12")
+    implementation("io.ktor:ktor-client-cio:2.3.13")
 }
 
 val localProperties = Properties().apply {
