@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.util.Properties
 
 plugins {
     kotlin("jvm")
@@ -22,6 +23,18 @@ dependencies {
     // With compose.desktop.common you will also lose @Preview functionality
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
+    // Supabase
+    implementation(platform("io.github.jan-tennert.supabase:bom:2.6.1"))
+    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt")
+
+    // Ktor engine (required by Supabase)
+    implementation("io.ktor:ktor-client-cio:2.3.12")
+}
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) load(file.inputStream())
 }
 
 compose.desktop {
@@ -34,4 +47,14 @@ compose.desktop {
             packageVersion = "1.0.0"
         }
     }
+}
+
+kotlin {
+    jvmToolchain(21)
+}
+
+// Pass to your code as system properties at runtime
+tasks.withType<JavaExec> {
+    systemProperty("supabase.url", localProperties["supabase.url"] ?: "")
+    systemProperty("supabase.key", localProperties["supabase.key"] ?: "")
 }
