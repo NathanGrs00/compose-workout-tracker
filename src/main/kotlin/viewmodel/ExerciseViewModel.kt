@@ -8,6 +8,9 @@ import kotlinx.coroutines.launch
 import models.Exercise
 import repository.ExerciseRepository
 
+/**
+ * ViewModel for managing the state of exercises in the UI.
+ */
 sealed class ExerciseUiState {
     data object Loading : ExerciseUiState()
     data class Success(val exercise: List<Exercise>) : ExerciseUiState()

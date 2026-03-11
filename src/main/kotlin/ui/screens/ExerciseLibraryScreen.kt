@@ -16,6 +16,9 @@ import ui.components.ListItem
 import viewmodel.ExerciseUiState
 import viewmodel.ExerciseViewModel
 
+/**
+ * Screen that displays the list of exercises in the library, allowing users to view, add, and delete exercises.
+ */
 @Composable
 fun ExerciseLibraryScreen(
     viewModel: ExerciseViewModel,

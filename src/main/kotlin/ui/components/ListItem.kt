@@ -9,6 +9,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+/**
+ * A composable function that represents a list item with a title, an optional subtitle, and a delete button.
+ */
 @Composable
 fun ListItem(
     title: String,

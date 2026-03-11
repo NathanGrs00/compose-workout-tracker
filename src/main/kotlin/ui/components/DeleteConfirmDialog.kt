@@ -3,6 +3,9 @@ package ui.components
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 
+/**
+ * A composable function that displays a confirmation dialog for deleting an item.
+ */
 @Composable
 fun DeleteConfirmDialog(
     itemName: String,
