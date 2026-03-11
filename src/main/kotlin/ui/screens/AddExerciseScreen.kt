@@ -1,9 +1,6 @@
 package ui.screens
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -37,15 +34,11 @@ fun AddExerciseScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            TextButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Exercises")
-            }
-        }
-
-        Text("New Exercise", style = MaterialTheme.typography.headlineMedium)
+        ScreenHeader(
+            title = "New Exercise",
+            onNavigateBack = onNavigateBack,
+            backLabel = "Exercises"
+        )
 
         AppTextField(
             value = name,
