@@ -1,4 +1,3 @@
-// Main.kt
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -9,10 +8,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import ui.screens.AddExerciseScreen
+import ui.screens.ExerciseLibraryScreen
 import viewmodel.ExerciseViewModel
 
 sealed class Screen {
     data object Home : Screen()
+    data object ExerciseLibrary : Screen()
     data object AddExercise : Screen()
 }
 
@@ -25,11 +26,16 @@ fun app() {
     MaterialTheme {
         when (currentScreen) {
             is Screen.Home -> homeScreen(
-                onNavigateToAddExercise = { currentScreen = Screen.AddExercise }
+                onNavigateToExercises = { currentScreen = Screen.ExerciseLibrary }
+            )
+            is Screen.ExerciseLibrary -> ExerciseLibraryScreen(
+                viewModel = exerciseViewModel,
+                onNavigateToAddExercise = { currentScreen = Screen.AddExercise },
+                onNavigateBack = { currentScreen = Screen.Home }
             )
             is Screen.AddExercise -> AddExerciseScreen(
                 viewModel = exerciseViewModel,
-                onExerciseSaved = { currentScreen = Screen.Home }
+                onExerciseSaved = { currentScreen = Screen.ExerciseLibrary }
             )
         }
     }
@@ -37,7 +43,7 @@ fun app() {
 
 @Composable
 fun homeScreen(
-    onNavigateToAddExercise: () -> Unit
+    onNavigateToExercises: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -48,10 +54,7 @@ fun homeScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Button(
-            onClick = onNavigateToAddExercise,
-            modifier = Modifier.fillMaxWidth(0.5f)
-        ) {
+        Button(onClick = onNavigateToExercises) {
             Text("Exercises")
         }
     }
