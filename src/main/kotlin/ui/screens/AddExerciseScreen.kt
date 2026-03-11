@@ -1,6 +1,8 @@
 package ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,7 +23,8 @@ val muscleGroups = listOf("Front Delts", "Mid Delts", "Rear Delts", "Traps", "La
 @Composable
 fun AddExerciseScreen(
     viewModel: ExerciseViewModel,
-    onExerciseSaved: () -> Unit
+    onExerciseSaved: () -> Unit,
+    onNavigateBack: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var muscleGroup by remember { mutableStateOf("") }
@@ -34,6 +37,14 @@ fun AddExerciseScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            TextButton(onClick = onNavigateBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Exercises")
+            }
+        }
+
         Text("New Exercise", style = MaterialTheme.typography.headlineMedium)
 
         AppTextField(

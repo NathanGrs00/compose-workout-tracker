@@ -31,7 +31,8 @@ fun App() {
             )
             is Screen.AddExercise -> AddExerciseScreen(
                 viewModel = exerciseViewModel,
-                onExerciseSaved = { currentScreen = Screen.ExerciseLibrary }
+                onExerciseSaved = { currentScreen = Screen.ExerciseLibrary },
+                onNavigateBack = { currentScreen = Screen.ExerciseLibrary }
             )
         }
     }
