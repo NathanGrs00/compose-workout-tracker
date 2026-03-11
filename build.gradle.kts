@@ -18,19 +18,17 @@ repositories {
 }
 
 dependencies {
-    // Note, if you develop a library, you should use compose.desktop.common.
-    // compose.desktop.currentOs should be used in launcher-sourceSet
-    // (in a separate module for demo project and in testMain).
-    // With compose.desktop.common you will also lose @Preview functionality
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
-    // Supabase
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
+
     implementation(platform("io.github.jan-tennert.supabase:bom:3.1.4"))
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:auth-kt")
 
-    // Ktor engine (required by Supabase)
-    implementation("io.ktor:ktor-client-cio:2.3.13")
+    implementation("io.ktor:ktor-client-core:3.0.0")
+    implementation("io.ktor:ktor-client-cio:3.0.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 }

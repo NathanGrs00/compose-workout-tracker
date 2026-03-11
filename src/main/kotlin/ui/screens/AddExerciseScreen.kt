@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ui.components.*
 import models.Exercise
+import viewmodel.ExerciseViewModel
 import java.util.UUID
 
 // List of common muscle groups for the dropdown selection when adding a new exercise.
@@ -19,7 +20,8 @@ val muscleGroups = listOf("Front Delts", "Mid Delts", "Rear Delts", "Traps", "La
  */
 @Composable
 fun AddExerciseScreen(
-    onExerciseSaved: (Exercise) -> Unit
+    viewModel: ExerciseViewModel,
+    onExerciseSaved: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var muscleGroup by remember { mutableStateOf("") }
@@ -55,13 +57,14 @@ fun AddExerciseScreen(
         AppButton(
             text = "Save Exercise",
             onClick = {
-                onExerciseSaved(
+                viewModel.addExercise(
                     Exercise(
                         id = UUID.randomUUID().toString(),
                         name = name.trim(),
                         muscleGroup = muscleGroup
                     )
                 )
+                onExerciseSaved()
             },
             enabled = formIsValid,
             isFullWidth = true
