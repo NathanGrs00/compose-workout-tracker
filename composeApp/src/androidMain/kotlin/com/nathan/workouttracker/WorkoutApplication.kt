@@ -13,7 +13,14 @@ class WorkoutApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         val driver = AndroidSqliteDriver(WorkoutDatabase.Schema, this, "workout.db")
-        container = AppContainer(driver)
+        container = AppContainer(driver, RestTimerService.notifier(this))
+        RestTimerService.createChannels(this)
         container.syncManager.start()
+    }
+
+    companion object {
+        /** True while the app's screen is visible (set by [MainActivity]). */
+        @Volatile
+        var isInForeground: Boolean = false
     }
 }

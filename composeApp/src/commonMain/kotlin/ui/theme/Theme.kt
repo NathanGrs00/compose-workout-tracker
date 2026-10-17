@@ -47,3 +47,13 @@ private val DarkColors = darkColorScheme(
 fun WorkoutTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = if (darkTheme) DarkColors else LightColors, content = content)
 }
+
+private val Color.isDark: Boolean get() = (red * 0.299f + green * 0.587f + blue * 0.114f) < 0.5f
+
+/** Status green ("good", "rest is over"), readable on light and dark backgrounds. */
+@Composable
+fun successColor(): Color = if (MaterialTheme.colorScheme.background.isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
+
+/** Status amber ("okay", "resting"). */
+@Composable
+fun warningColor(): Color = if (MaterialTheme.colorScheme.background.isDark) Color(0xFFFFCC80) else Color(0xFFB26A00)

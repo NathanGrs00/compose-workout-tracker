@@ -17,6 +17,7 @@ data class Suggestion(
  *
  * - Hit the top of the rep range on every working set and it felt Good or Okay → add one weight step,
  *   restart at the bottom of the range.
+ * - Did more sets than planned (an unplanned extra set) and it didn't feel Bad → add one weight step.
  * - Good → same weight, one more rep.
  * - Okay → same weight, match your best set on every set.
  * - Bad → repeat the same weight and reps. Bad twice in a row, or below the rep range → lower the weight.
@@ -62,6 +63,14 @@ object Progression {
                 Suggestion(lighter, repMin, "Felt bad and below $repMin reps → go down to ${Format.number(lighter)} kg")
             }
             rating == Rating.BAD -> Suggestion(topWeight, lowestReps, "Felt bad last time → repeat $w kg × $lowestReps")
+            last.sets.size > exercise.targetSets.coerceAtLeast(1) -> {
+                val heavier = topWeight + step
+                val target = lowestReps.coerceIn(repMin, repMax)
+                Suggestion(
+                    heavier, target,
+                    "Did an extra set (${last.sets.size} of ${exercise.targetSets}) → energy left, add ${Format.number(step)} kg",
+                )
+            }
             lowestReps >= repMax -> {
                 val heavier = topWeight + step
                 Suggestion(heavier, repMin, "Hit $repMax reps on every set$feel → add ${Format.number(step)} kg")

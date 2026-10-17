@@ -1,0 +1,31 @@
+-- Version 3 -> 4: barbell flag + setup note, supersets, session notes, body weight.
+ALTER TABLE exercise ADD COLUMN is_barbell INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE exercise ADD COLUMN setup_note TEXT NOT NULL DEFAULT '';
+ALTER TABLE workout_day ADD COLUMN supersets TEXT NOT NULL DEFAULT '';
+ALTER TABLE workout_session ADD COLUMN supersets TEXT NOT NULL DEFAULT '';
+
+-- Mark the common barbell lifts from the starter library (synced as a normal edit).
+UPDATE exercise SET is_barbell = 1, dirty = 1, updated_at = updated_at + 1
+WHERE deleted = 0 AND lower(name) IN (
+    'bench press', 'overhead press', 'barbell row', 'deadlift', 'squat',
+    'romanian deadlift', 'barbell curl', 'hip thrust'
+);
+
+CREATE TABLE session_note (
+    id TEXT NOT NULL PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    exercise_id TEXT NOT NULL,
+    note TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    dirty INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE body_weight (
+    id TEXT NOT NULL PRIMARY KEY,
+    measured_at INTEGER NOT NULL,
+    weight REAL NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    dirty INTEGER NOT NULL DEFAULT 1
+);

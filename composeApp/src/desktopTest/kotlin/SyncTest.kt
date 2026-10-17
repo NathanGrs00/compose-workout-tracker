@@ -190,7 +190,7 @@ class RatingAndMigrationTest {
         val remote = FakeRemote()
         val phone = Device(remote, startClock = 1_000)
         val pc = Device(remote, startClock = 50_000)
-        val bench = phone.repo.addExercise("Bench Press", "Chest", repMin = 5, repMax = 8, weightIncrement = 1.25)
+        val bench = phone.repo.addExercise("Bench Press", "Chest", repMin = 5, repMax = 8, weightIncrement = 1.25, targetSets = 4, restSeconds = 180)
         val session = phone.repo.startSession(null)
         phone.repo.logSet(session.id, bench.id, 80.0, 8)
         phone.repo.setRating(session.id, bench.id, models.Rating.GOOD)
@@ -201,6 +201,7 @@ class RatingAndMigrationTest {
         val pcBench = pc.repo.exercises.first().single()
         assertEquals(5 to 8, pcBench.repMin to pcBench.repMax)
         assertEquals(1.25, pcBench.weightIncrement)
+        assertEquals(4 to 180, pcBench.targetSets to pcBench.restSeconds)
         assertEquals(models.Rating.GOOD, pc.repo.ratings.first().single().rating)
 
         // Change the rating on the PC; the phone follows. Clearing removes it everywhere.
@@ -250,10 +251,63 @@ class RatingAndMigrationTest {
             assertEquals("Bench Press", bench.name)
             assertEquals(8 to 12, bench.repMin to bench.repMax)
             assertEquals(2.5, bench.weightIncrement)
+            assertEquals(3 to 90, bench.targetSets to bench.restSeconds)
+            // v3 -> v4 marks known barbell lifts.
+            assertTrue(bench.isBarbell)
+            repo.updateExercise(bench.copy(targetSets = 4, restSeconds = 150))
+            assertEquals(4 to 150, repo.exercises.first().single().let { it.targetSets to it.restSeconds })
             val session = repo.startSession(null)
             repo.setRating(session.id, bench.id, models.Rating.GOOD)
             assertEquals(1, repo.ratings.first().size)
         }
         driver.close()
+    }
+}
+
+class NotesSupersetsBodyWeightTest {
+    @Test
+    fun notesSupersetsAndBodyWeightSync() = runBlocking {
+        val remote = FakeRemote()
+        val phone = Device(remote, startClock = 1_000)
+        val pc = Device(remote, startClock = 50_000)
+        val a = phone.repo.addExercise("Lateral Raise", "Mid Delts", setupNote = "cable at 2")
+        val b = phone.repo.addExercise("Triceps Pushdown", "Triceps", isBarbell = false)
+        phone.repo.saveWorkoutDay(models.WorkoutDay("r", "Push", listOf(a.id, b.id), supersets = listOf(a.id to b.id)))
+        val session = phone.repo.startSession(phone.repo.workoutDays.first().single())
+        assertEquals(listOf(a.id to b.id), session.supersets)
+        phone.repo.logSet(session.id, a.id, 10.0, 12)
+        phone.repo.setSessionNote(session.id, a.id, "left shoulder tight")
+        phone.repo.logBodyWeight(81.5)
+        phone.sync.syncNow()
+        pc.sync.syncNow()
+
+        assertEquals("cable at 2", pc.repo.exercises.first().first { it.id == a.id }.setupNote)
+        assertEquals(listOf(a.id to b.id), pc.repo.workoutDays.first().single().supersets)
+        assertEquals(listOf(a.id to b.id), pc.repo.sessions.first().single().supersets)
+        assertEquals("left shoulder tight", pc.repo.sessionNotes.first().single().note)
+        assertEquals(81.5, pc.repo.bodyWeights.first().single().weight)
+
+        // Clearing a note and removing a superset sync too.
+        pc.repo.setSessionNote(session.id, a.id, "")
+        pc.repo.removeSessionSuperset(session.id, a.id)
+        pc.sync.syncNow(); phone.sync.syncNow()
+        assertTrue(phone.repo.sessionNotes.first().isEmpty())
+        assertTrue(phone.repo.sessions.first().single().supersets.isEmpty())
+    }
+
+    @Test
+    fun routineDropsSupersetsOfRemovedExercises() = runBlocking {
+        val phone = Device(FakeRemote(), startClock = 1_000)
+        phone.repo.saveWorkoutDay(models.WorkoutDay("r", "Push", listOf("a"), supersets = listOf("a" to "b")))
+        assertTrue(phone.repo.workoutDays.first().single().supersets.isEmpty())
+    }
+
+    @Test
+    fun starterBarbellLiftsAreMarked() = runBlocking {
+        val phone = Device(FakeRemote(), startClock = 1_000)
+        phone.repo.addStarterExercises()
+        val byName = phone.repo.exercises.first().associateBy { it.name }
+        assertTrue(byName.getValue("Squat").isBarbell)
+        assertTrue(!byName.getValue("Lateral Raise").isBarbell)
     }
 }

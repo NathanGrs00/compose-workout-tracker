@@ -25,6 +25,12 @@ alter table public.exercises add column if not exists server_updated_at bigint n
 alter table public.exercises add column if not exists rep_min integer not null default 8;
 alter table public.exercises add column if not exists rep_max integer not null default 12;
 alter table public.exercises add column if not exists weight_increment double precision not null default 2.5;
+-- Planned sets per workout and rest time between sets
+alter table public.exercises add column if not exists target_sets integer not null default 3;
+alter table public.exercises add column if not exists rest_seconds integer not null default 90;
+-- Barbell lifts get a plate calculator and warm-ups; setup note e.g. "seat height 4"
+alter table public.exercises add column if not exists is_barbell boolean not null default false;
+alter table public.exercises add column if not exists setup_note text not null default '';
 
 -- Routines / workout templates
 create table if not exists public.workout_days (
@@ -35,6 +41,9 @@ create table if not exists public.workout_days (
   deleted boolean not null default false,
   server_updated_at bigint not null default (extract(epoch from clock_timestamp()) * 1000)::bigint
 );
+
+-- Superset pairs, e.g. [["a","b"]]
+alter table public.workout_days add column if not exists supersets jsonb not null default '[]'::jsonb;
 
 -- Performed workouts
 create table if not exists public.workout_sessions (
@@ -62,6 +71,29 @@ create table if not exists public.logged_sets (
   server_updated_at bigint not null default (extract(epoch from clock_timestamp()) * 1000)::bigint
 );
 
+alter table public.workout_sessions add column if not exists supersets jsonb not null default '[]'::jsonb;
+
+-- Per-workout note on an exercise; id = "<session_id>:<exercise_id>"
+create table if not exists public.session_notes (
+  id text primary key,
+  session_id text not null,
+  exercise_id text not null,
+  note text not null,
+  updated_at bigint not null default 0,
+  deleted boolean not null default false,
+  server_updated_at bigint not null default (extract(epoch from clock_timestamp()) * 1000)::bigint
+);
+
+-- Body weight measurements (kg)
+create table if not exists public.body_weights (
+  id text primary key,
+  measured_at bigint not null,
+  weight double precision not null,
+  updated_at bigint not null default 0,
+  deleted boolean not null default false,
+  server_updated_at bigint not null default (extract(epoch from clock_timestamp()) * 1000)::bigint
+);
+
 -- How an exercise went in a workout (GOOD / OKAY / BAD); id = "<session_id>:<exercise_id>"
 create table if not exists public.exercise_ratings (
   id text primary key,
@@ -76,7 +108,7 @@ create table if not exists public.exercise_ratings (
 do $$
 declare t text;
 begin
-  foreach t in array array['exercises', 'workout_days', 'workout_sessions', 'logged_sets', 'exercise_ratings'] loop
+  foreach t in array array['exercises', 'workout_days', 'workout_sessions', 'logged_sets', 'exercise_ratings', 'session_notes', 'body_weights'] loop
     execute format('drop trigger if exists set_server_updated_at on public.%I', t);
     execute format('create trigger set_server_updated_at before insert or update on public.%I
                     for each row execute function public.set_server_updated_at()', t);

@@ -14,19 +14,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import models.Rating
+import ui.theme.successColor
+import ui.theme.warningColor
 
 /** Status color for a rating, readable in light and dark theme. Always shown together with its label. */
 @Composable
-fun ratingColor(rating: Rating): Color {
-    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    return when (rating) {
-        Rating.GOOD -> if (dark) Color(0xFF81C784) else Color(0xFF2E7D32)
-        Rating.OKAY -> if (dark) Color(0xFFFFCC80) else Color(0xFF8A5A00)
-        Rating.BAD -> MaterialTheme.colorScheme.error
-    }
+fun ratingColor(rating: Rating): Color = when (rating) {
+    Rating.GOOD -> successColor()
+    Rating.OKAY -> warningColor()
+    Rating.BAD -> MaterialTheme.colorScheme.error
 }
 
 /** Small read-only label, e.g. "Good". */

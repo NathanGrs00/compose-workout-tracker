@@ -6,5 +6,7 @@ package models
 data class WorkoutDay(
     val id: String,
     val name: String,
-    val exerciseIds: List<String>
+    val exerciseIds: List<String>,
+    /** Pairs of exercises done back to back (superset). */
+    val supersets: List<Pair<String, String>> = emptyList(),
 )

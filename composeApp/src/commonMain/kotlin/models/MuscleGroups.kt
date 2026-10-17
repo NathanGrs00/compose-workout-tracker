@@ -6,6 +6,11 @@ val muscleGroups = listOf(
     "Biceps", "Triceps", "Forearms", "Quads", "Hamstrings", "Glutes", "Calves", "Abs / Core", "Cardio"
 )
 
+/** Starter exercises that are barbell lifts (plate calculator + warm-ups). */
+val starterBarbellExercises = setOf(
+    "Bench Press", "Overhead Press", "Barbell Row", "Deadlift", "Squat", "Romanian Deadlift", "Barbell Curl", "Hip Thrust",
+)
+
 /** A starter library so a fresh install is usable straight away. */
 val starterExercises = listOf(
     "Bench Press" to "Chest",

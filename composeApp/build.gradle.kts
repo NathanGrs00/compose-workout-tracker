@@ -112,8 +112,8 @@ android {
         applicationId = "com.nathan.workouttracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 4
+        versionName = "1.3.0"
     }
     signingConfigs {
         // A fixed key committed to the repo, so every build (local or CI) can be installed as an update
@@ -154,7 +154,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "WorkoutTracker"
-            packageVersion = "1.1.0"
+            packageVersion = "1.3.0"
             description = "Workout tracker with progress analytics"
             modules("java.sql")
             windows {
