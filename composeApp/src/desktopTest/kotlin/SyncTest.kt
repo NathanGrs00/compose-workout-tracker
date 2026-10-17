@@ -252,6 +252,8 @@ class RatingAndMigrationTest {
             assertEquals(8 to 12, bench.repMin to bench.repMax)
             assertEquals(2.5, bench.weightIncrement)
             assertEquals(3 to 90, bench.targetSets to bench.restSeconds)
+            // v3 -> v4 marks known barbell lifts.
+            assertTrue(bench.isBarbell)
             repo.updateExercise(bench.copy(targetSets = 4, restSeconds = 150))
             assertEquals(4 to 150, repo.exercises.first().single().let { it.targetSets to it.restSeconds })
             val session = repo.startSession(null)
@@ -259,5 +261,53 @@ class RatingAndMigrationTest {
             assertEquals(1, repo.ratings.first().size)
         }
         driver.close()
+    }
+}
+
+class NotesSupersetsBodyWeightTest {
+    @Test
+    fun notesSupersetsAndBodyWeightSync() = runBlocking {
+        val remote = FakeRemote()
+        val phone = Device(remote, startClock = 1_000)
+        val pc = Device(remote, startClock = 50_000)
+        val a = phone.repo.addExercise("Lateral Raise", "Mid Delts", setupNote = "cable at 2")
+        val b = phone.repo.addExercise("Triceps Pushdown", "Triceps", isBarbell = false)
+        phone.repo.saveWorkoutDay(models.WorkoutDay("r", "Push", listOf(a.id, b.id), supersets = listOf(a.id to b.id)))
+        val session = phone.repo.startSession(phone.repo.workoutDays.first().single())
+        assertEquals(listOf(a.id to b.id), session.supersets)
+        phone.repo.logSet(session.id, a.id, 10.0, 12)
+        phone.repo.setSessionNote(session.id, a.id, "left shoulder tight")
+        phone.repo.logBodyWeight(81.5)
+        phone.sync.syncNow()
+        pc.sync.syncNow()
+
+        assertEquals("cable at 2", pc.repo.exercises.first().first { it.id == a.id }.setupNote)
+        assertEquals(listOf(a.id to b.id), pc.repo.workoutDays.first().single().supersets)
+        assertEquals(listOf(a.id to b.id), pc.repo.sessions.first().single().supersets)
+        assertEquals("left shoulder tight", pc.repo.sessionNotes.first().single().note)
+        assertEquals(81.5, pc.repo.bodyWeights.first().single().weight)
+
+        // Clearing a note and removing a superset sync too.
+        pc.repo.setSessionNote(session.id, a.id, "")
+        pc.repo.removeSessionSuperset(session.id, a.id)
+        pc.sync.syncNow(); phone.sync.syncNow()
+        assertTrue(phone.repo.sessionNotes.first().isEmpty())
+        assertTrue(phone.repo.sessions.first().single().supersets.isEmpty())
+    }
+
+    @Test
+    fun routineDropsSupersetsOfRemovedExercises() = runBlocking {
+        val phone = Device(FakeRemote(), startClock = 1_000)
+        phone.repo.saveWorkoutDay(models.WorkoutDay("r", "Push", listOf("a"), supersets = listOf("a" to "b")))
+        assertTrue(phone.repo.workoutDays.first().single().supersets.isEmpty())
+    }
+
+    @Test
+    fun starterBarbellLiftsAreMarked() = runBlocking {
+        val phone = Device(FakeRemote(), startClock = 1_000)
+        phone.repo.addStarterExercises()
+        val byName = phone.repo.exercises.first().associateBy { it.name }
+        assertTrue(byName.getValue("Squat").isBarbell)
+        assertTrue(!byName.getValue("Lateral Raise").isBarbell)
     }
 }

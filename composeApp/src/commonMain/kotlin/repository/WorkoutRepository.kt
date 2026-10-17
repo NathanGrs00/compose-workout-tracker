@@ -18,6 +18,12 @@ import models.LoggedSet
 import models.WorkoutDay
 import models.WorkoutSession
 import models.starterExercises
+import analytics.Supersets
+import models.starterBarbellExercises
+import models.SessionNote
+import models.BodyWeightEntry
+import repository.mappers.toSessionNote
+import repository.mappers.toBodyWeightEntry
 import repository.mappers.toExercise
 import repository.mappers.toExerciseRating
 import repository.mappers.toLoggedSet
@@ -58,8 +64,12 @@ class WorkoutRepository(
         weightIncrement: Double = 2.5,
         targetSets: Int = 3,
         restSeconds: Int = 90,
+        isBarbell: Boolean = false,
+        setupNote: String = "",
     ): Exercise {
-        val exercise = Exercise(newId(), name.trim(), muscleGroup, repMin, repMax, weightIncrement, targetSets, restSeconds)
+        val exercise = Exercise(
+            newId(), name.trim(), muscleGroup, repMin, repMax, weightIncrement, targetSets, restSeconds, isBarbell, setupNote.trim(),
+        )
         writeExercise(exercise, previousUpdatedAt = null, deleted = false)
         changed()
         return exercise
@@ -83,6 +93,7 @@ class WorkoutRepository(
             exercise.id, exercise.name, exercise.muscleGroup,
             repMin.toLong(), exercise.repMax.coerceAtLeast(repMin).toLong(), exercise.weightIncrement.coerceAtLeast(0.25),
             exercise.targetSets.coerceAtLeast(1).toLong(), exercise.restSeconds.coerceAtLeast(0).toLong(),
+            if (exercise.isBarbell) 1L else 0L, exercise.setupNote.trim(),
             editTime(previousUpdatedAt), if (deleted) 1 else 0, 1,
         )
     }
@@ -92,7 +103,7 @@ class WorkoutRepository(
         val existing = db.exerciseQueries.selectActive().executeAsList().map { it.name.lowercase() }.toSet()
         db.transaction {
             starterExercises.filter { it.first.lowercase() !in existing }.forEach { (name, group) ->
-                writeExercise(Exercise(newId(), name, group), previousUpdatedAt = null, deleted = false)
+                writeExercise(Exercise(newId(), name, group, isBarbell = name in starterBarbellExercises), previousUpdatedAt = null, deleted = false)
             }
         }
         changed()
@@ -105,13 +116,15 @@ class WorkoutRepository(
 
     fun saveWorkoutDay(day: WorkoutDay) {
         val old = db.workoutDayQueries.selectById(day.id).executeAsOneOrNull()
-        db.workoutDayQueries.upsert(day.id, day.name.trim(), day.exerciseIds.joinIds(), editTime(old?.updated_at), 0, 1)
+        // Only keep supersets whose exercises are both still in the routine.
+        val supersets = day.supersets.filter { it.first in day.exerciseIds && it.second in day.exerciseIds }
+        db.workoutDayQueries.upsert(day.id, day.name.trim(), day.exerciseIds.joinIds(), supersets.joinPairs(), editTime(old?.updated_at), 0, 1)
         changed()
     }
 
     fun deleteWorkoutDay(id: String) {
         val old = db.workoutDayQueries.selectById(id).executeAsOneOrNull() ?: return
-        db.workoutDayQueries.upsert(id, old.name, old.exercise_ids, editTime(old.updated_at), 1, 1)
+        db.workoutDayQueries.upsert(id, old.name, old.exercise_ids, old.supersets, editTime(old.updated_at), 1, 1)
         changed()
     }
 
@@ -138,6 +151,7 @@ class WorkoutRepository(
             exerciseIds = day?.exerciseIds ?: emptyList(),
             startedAt = now,
             finishedAt = null,
+            supersets = day?.supersets ?: emptyList(),
         )
         writeSession(session, previousUpdatedAt = null)
         changed()
@@ -164,7 +178,13 @@ class WorkoutRepository(
                 .filter { it.exercise_id == exerciseId }
                 .forEach { softDeleteSet(it.id) }
             setRating(sessionId, exerciseId, null)
-            updateSession(session.copy(exerciseIds = session.exerciseIds - exerciseId))
+            setSessionNote(sessionId, exerciseId, "")
+            updateSession(
+                session.copy(
+                    exerciseIds = session.exerciseIds - exerciseId,
+                    supersets = session.supersets.filter { exerciseId != it.first && exerciseId != it.second },
+                )
+            )
         }
         changed()
     }
@@ -172,7 +192,21 @@ class WorkoutRepository(
     /** Moves an exercise one position up (-1) or down (+1) within a session. */
     fun moveExerciseInSession(sessionId: String, exerciseId: String, direction: Int) {
         val session = currentSession(sessionId) ?: return
-        updateSession(session.copy(exerciseIds = session.exerciseIds.moved(exerciseId, direction)))
+        val moved = Supersets.order(session.exerciseIds, session.supersets).moved(exerciseId, direction)
+        updateSession(session.copy(exerciseIds = moved, supersets = Supersets.reorder(session.supersets, moved)))
+    }
+
+    /** Pairs [first] and [second] as a superset in a session (each exercise can be in one superset). */
+    fun setSessionSuperset(sessionId: String, first: String, second: String) {
+        val session = currentSession(sessionId) ?: return
+        val others = session.supersets.filter { it.first !in setOf(first, second) && it.second !in setOf(first, second) }
+        updateSession(session.copy(supersets = others + (first to second)))
+    }
+
+    /** Removes the superset that [exerciseId] is part of. */
+    fun removeSessionSuperset(sessionId: String, exerciseId: String) {
+        val session = currentSession(sessionId) ?: return
+        updateSession(session.copy(supersets = session.supersets.filter { exerciseId != it.first && exerciseId != it.second }))
     }
 
     /**
@@ -196,8 +230,9 @@ class WorkoutRepository(
         db.transaction {
             db.loggedSetQueries.selectForSession(id).executeAsList().forEach { softDeleteSet(it.id) }
             db.exerciseRatingQueries.selectForSession(id).executeAsList().forEach { setRating(id, it.exercise_id, null) }
+            db.sessionNoteQueries.selectForSession(id).executeAsList().forEach { setSessionNote(id, it.exercise_id, "") }
             db.workoutSessionQueries.upsert(
-                old.id, old.workout_day_id, old.name, old.exercise_ids, old.started_at, old.finished_at,
+                old.id, old.workout_day_id, old.name, old.exercise_ids, old.supersets, old.started_at, old.finished_at,
                 editTime(old.updated_at), 1, 1,
             )
         }
@@ -210,6 +245,7 @@ class WorkoutRepository(
     private fun writeSession(session: WorkoutSession, previousUpdatedAt: Long?) {
         db.workoutSessionQueries.upsert(
             session.id, session.workoutDayId, session.name.trim().ifBlank { "Workout" }, session.exerciseIds.joinIds(),
+            session.supersets.filter { it.first in session.exerciseIds && it.second in session.exerciseIds }.joinPairs(),
             session.startedAt, session.finishedAt, editTime(previousUpdatedAt), 0, 1,
         )
     }
@@ -273,16 +309,58 @@ class WorkoutRepository(
         changed()
     }
 
+    // ---------------------------------------------------------------- Notes
+
+    /** Per-workout notes for every session and exercise. */
+    val sessionNotes: Flow<List<SessionNote>> =
+        db.sessionNoteQueries.selectActive().asFlow().mapToList(io).map { rows -> rows.map { it.toSessionNote() } }
+
+    /** Sets the note for an exercise in a session; a blank note removes it. */
+    fun setSessionNote(sessionId: String, exerciseId: String, note: String) {
+        val id = "$sessionId:$exerciseId"
+        val old = db.sessionNoteQueries.selectById(id).executeAsOneOrNull()
+        val text = note.trim()
+        if (text.isEmpty() && (old == null || old.deleted == 1L)) return
+        if (old != null && old.deleted == 0L && old.note == text) return
+        db.sessionNoteQueries.upsert(
+            id, sessionId, exerciseId, text.ifEmpty { old!!.note }, editTime(old?.updated_at), if (text.isEmpty()) 1 else 0, 1,
+        )
+        changed()
+    }
+
+    // ---------------------------------------------------------------- Body weight
+
+    /** Body weight entries, oldest first. */
+    val bodyWeights: Flow<List<BodyWeightEntry>> =
+        db.bodyWeightQueries.selectActive().asFlow().mapToList(io).map { rows -> rows.map { it.toBodyWeightEntry() } }
+
+    fun logBodyWeight(weight: Double, measuredAt: Long = clock()): BodyWeightEntry {
+        val entry = BodyWeightEntry(newId(), measuredAt, weight)
+        db.bodyWeightQueries.upsert(entry.id, entry.measuredAt, entry.weight, editTime(null), 0, 1)
+        changed()
+        return entry
+    }
+
+    fun deleteBodyWeight(id: String) {
+        val old = db.bodyWeightQueries.selectById(id).executeAsOneOrNull() ?: return
+        db.bodyWeightQueries.upsert(old.id, old.measured_at, old.weight, editTime(old.updated_at), 1, 1)
+        changed()
+    }
+
     // ---------------------------------------------------------------- Sync status
 
     /** Number of local changes that still need to be uploaded. */
     val pendingChanges: Flow<Long> = combine(
-        db.exerciseQueries.countDirty().asFlow().mapToOneOrNull(io),
-        db.workoutDayQueries.countDirty().asFlow().mapToOneOrNull(io),
-        db.workoutSessionQueries.countDirty().asFlow().mapToOneOrNull(io),
-        db.loggedSetQueries.countDirty().asFlow().mapToOneOrNull(io),
-        db.exerciseRatingQueries.countDirty().asFlow().mapToOneOrNull(io),
-    ) { a, b, c, d, e -> (a ?: 0) + (b ?: 0) + (c ?: 0) + (d ?: 0) + (e ?: 0) }
+        listOf(
+            db.exerciseQueries.countDirty(),
+            db.workoutDayQueries.countDirty(),
+            db.workoutSessionQueries.countDirty(),
+            db.loggedSetQueries.countDirty(),
+            db.exerciseRatingQueries.countDirty(),
+            db.sessionNoteQueries.countDirty(),
+            db.bodyWeightQueries.countDirty(),
+        ).map { it.asFlow().mapToOneOrNull(io) }
+    ) { counts -> counts.sumOf { it ?: 0L } }
 }
 
 /** Moves [item] one step in [direction] (-1 = up, +1 = down). */

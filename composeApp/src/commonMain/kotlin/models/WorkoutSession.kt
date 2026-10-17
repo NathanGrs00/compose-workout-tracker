@@ -12,6 +12,8 @@ data class WorkoutSession(
     val exerciseIds: List<String>,
     val startedAt: Long,
     val finishedAt: Long?,
+    /** Pairs of exercises done back to back (superset). */
+    val supersets: List<Pair<String, String>> = emptyList(),
 ) {
     val isInProgress: Boolean get() = finishedAt == null
 }

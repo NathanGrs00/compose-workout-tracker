@@ -8,6 +8,13 @@ import repository.dto.LoggedSetDto
 import repository.dto.WorkoutDayDto
 import repository.dto.WorkoutSessionDto
 import repository.joinIds
+import repository.joinPairs
+import repository.splitIds
+import repository.splitPairs
+import repository.toLists
+import repository.toPairs
+import repository.dto.SessionNoteDto
+import repository.dto.BodyWeightDto
 
 /**
  * Describes how one table is synced: which local rows need uploading, how to mark them
@@ -41,6 +48,7 @@ fun syncTables(db: WorkoutDatabase): List<SyncTable<*>> = listOf(
                 ExerciseDto(
                     it.id, it.name, it.muscle_group, it.rep_min.toInt(), it.rep_max.toInt(), it.weight_increment,
                     it.target_sets.toInt(), it.rest_seconds.toInt(), it.updated_at, it.deleted.bool(),
+                    isBarbell = it.is_barbell.bool(), setupNote = it.setup_note,
                 )
             }
         },
@@ -49,7 +57,8 @@ fun syncTables(db: WorkoutDatabase): List<SyncTable<*>> = listOf(
         writeClean = {
             db.exerciseQueries.upsert(
                 it.id, it.name, it.muscleGroup, it.repMin.toLong(), it.repMax.toLong(), it.weightIncrement,
-                it.targetSets.toLong(), it.restSeconds.toLong(), it.updatedAt, it.deleted.long(), 0,
+                it.targetSets.toLong(), it.restSeconds.toLong(), it.isBarbell.long(), it.setupNote,
+                it.updatedAt, it.deleted.long(), 0,
             )
         },
     ),
@@ -59,12 +68,19 @@ fun syncTables(db: WorkoutDatabase): List<SyncTable<*>> = listOf(
         id = { it.id }, updatedAt = { it.updatedAt }, serverUpdatedAt = { it.serverUpdatedAt },
         dirtyRows = {
             db.workoutDayQueries.selectDirty().executeAsList().map {
-                WorkoutDayDto(it.id, it.name, it.exercise_ids.split(",").filter(String::isNotBlank), it.updated_at, it.deleted.bool())
+                WorkoutDayDto(
+                    it.id, it.name, it.exercise_ids.splitIds(), it.updated_at, it.deleted.bool(),
+                    supersets = it.supersets.splitPairs().toLists(),
+                )
             }
         },
         markClean = { id, updatedAt -> db.workoutDayQueries.markClean(id, updatedAt) },
         localVersion = { id -> db.workoutDayQueries.selectById(id).executeAsOneOrNull()?.let { it.updated_at to it.dirty.bool() } },
-        writeClean = { db.workoutDayQueries.upsert(it.id, it.name, it.exerciseIds.joinIds(), it.updatedAt, it.deleted.long(), 0) },
+        writeClean = {
+            db.workoutDayQueries.upsert(
+                it.id, it.name, it.exerciseIds.joinIds(), it.supersets.toPairs().joinPairs(), it.updatedAt, it.deleted.long(), 0,
+            )
+        },
     ),
     SyncTable(
         remoteName = "workout_sessions",
@@ -73,8 +89,9 @@ fun syncTables(db: WorkoutDatabase): List<SyncTable<*>> = listOf(
         dirtyRows = {
             db.workoutSessionQueries.selectDirty().executeAsList().map {
                 WorkoutSessionDto(
-                    it.id, it.workout_day_id, it.name, it.exercise_ids.split(",").filter(String::isNotBlank),
+                    it.id, it.workout_day_id, it.name, it.exercise_ids.splitIds(),
                     it.started_at, it.finished_at, it.updated_at, it.deleted.bool(),
+                    supersets = it.supersets.splitPairs().toLists(),
                 )
             }
         },
@@ -82,8 +99,8 @@ fun syncTables(db: WorkoutDatabase): List<SyncTable<*>> = listOf(
         localVersion = { id -> db.workoutSessionQueries.selectById(id).executeAsOneOrNull()?.let { it.updated_at to it.dirty.bool() } },
         writeClean = {
             db.workoutSessionQueries.upsert(
-                it.id, it.workoutDayId, it.name, it.exerciseIds.joinIds(), it.startedAt, it.finishedAt,
-                it.updatedAt, it.deleted.long(), 0,
+                it.id, it.workoutDayId, it.name, it.exerciseIds.joinIds(), it.supersets.toPairs().joinPairs(),
+                it.startedAt, it.finishedAt, it.updatedAt, it.deleted.long(), 0,
             )
         },
     ),
@@ -121,6 +138,36 @@ fun syncTables(db: WorkoutDatabase): List<SyncTable<*>> = listOf(
         localVersion = { id -> db.exerciseRatingQueries.selectById(id).executeAsOneOrNull()?.let { it.updated_at to it.dirty.bool() } },
         writeClean = {
             db.exerciseRatingQueries.upsert(it.id, it.sessionId, it.exerciseId, it.rating, it.updatedAt, it.deleted.long(), 0)
+        },
+    ),
+    SyncTable(
+        remoteName = "session_notes",
+        serializer = SessionNoteDto.serializer(),
+        id = { it.id }, updatedAt = { it.updatedAt }, serverUpdatedAt = { it.serverUpdatedAt },
+        dirtyRows = {
+            db.sessionNoteQueries.selectDirty().executeAsList().map {
+                SessionNoteDto(it.id, it.session_id, it.exercise_id, it.note, it.updated_at, it.deleted.bool())
+            }
+        },
+        markClean = { id, updatedAt -> db.sessionNoteQueries.markClean(id, updatedAt) },
+        localVersion = { id -> db.sessionNoteQueries.selectById(id).executeAsOneOrNull()?.let { it.updated_at to it.dirty.bool() } },
+        writeClean = {
+            db.sessionNoteQueries.upsert(it.id, it.sessionId, it.exerciseId, it.note, it.updatedAt, it.deleted.long(), 0)
+        },
+    ),
+    SyncTable(
+        remoteName = "body_weights",
+        serializer = BodyWeightDto.serializer(),
+        id = { it.id }, updatedAt = { it.updatedAt }, serverUpdatedAt = { it.serverUpdatedAt },
+        dirtyRows = {
+            db.bodyWeightQueries.selectDirty().executeAsList().map {
+                BodyWeightDto(it.id, it.measured_at, it.weight, it.updated_at, it.deleted.bool())
+            }
+        },
+        markClean = { id, updatedAt -> db.bodyWeightQueries.markClean(id, updatedAt) },
+        localVersion = { id -> db.bodyWeightQueries.selectById(id).executeAsOneOrNull()?.let { it.updated_at to it.dirty.bool() } },
+        writeClean = {
+            db.bodyWeightQueries.upsert(it.id, it.measuredAt, it.weight, it.updatedAt, it.deleted.long(), 0)
         },
     ),
 )

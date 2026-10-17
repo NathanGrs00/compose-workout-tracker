@@ -41,7 +41,10 @@ fun SettingsScreen(
     syncManager: SyncManager,
     syncState: SyncState,
     pendingChanges: Long,
+    barWeight: Double,
+    onBarWeightChange: (Double) -> Unit,
 ) {
+    var bar by remember { mutableStateOf(Format.number(barWeight)) }
     var url by remember { mutableStateOf(settings.supabaseUrl) }
     var key by remember { mutableStateOf(settings.supabaseKey) }
     var showKey by remember { mutableStateOf(false) }
@@ -105,8 +108,28 @@ fun SettingsScreen(
             )
         }
 
+        SectionCard("Plate calculator", subtitle = "Used for barbell exercises: plates per side and warm-ups.") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                ui.components.NumberStepper(
+                    value = bar,
+                    onValueChange = { bar = it },
+                    label = "Bar (kg)",
+                    step = 2.5,
+                    decimal = true,
+                    modifier = Modifier.weight(1f),
+                )
+                val parsed = Format.parseDecimal(bar)?.takeIf { it in 0.0..50.0 }
+                Button(onClick = { parsed?.let(onBarWeightChange) }, enabled = parsed != null && parsed != barWeight) { Text("Save") }
+            }
+            Text(
+                "Plates: 25, 20, 15, 10, 5, 2.5, 1.25 kg.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         SectionCard("About") {
-            Text("Workout Tracker 1.2.0", style = MaterialTheme.typography.bodyMedium)
+            Text("Workout Tracker 1.3.0", style = MaterialTheme.typography.bodyMedium)
             Text(
                 "Weights are in kg. Estimated 1RM uses the Epley formula: weight × (1 + reps / 30).",
                 style = MaterialTheme.typography.bodySmall,

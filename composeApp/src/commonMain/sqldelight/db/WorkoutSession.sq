@@ -1,4 +1,5 @@
 -- A performed workout. finished_at is NULL while the workout is in progress.
+-- supersets: pairs of exercise ids done back to back, "a|b,c|d" (copied from the routine).
 CREATE TABLE workout_session (
     id TEXT NOT NULL PRIMARY KEY,
     workout_day_id TEXT,
@@ -8,7 +9,8 @@ CREATE TABLE workout_session (
     finished_at INTEGER,
     updated_at INTEGER NOT NULL,
     deleted INTEGER NOT NULL DEFAULT 0,
-    dirty INTEGER NOT NULL DEFAULT 1
+    dirty INTEGER NOT NULL DEFAULT 1,
+    supersets TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX workout_session_started ON workout_session(started_at);
@@ -26,8 +28,8 @@ selectDirty:
 SELECT * FROM workout_session WHERE dirty = 1;
 
 upsert:
-INSERT OR REPLACE INTO workout_session(id, workout_day_id, name, exercise_ids, started_at, finished_at, updated_at, deleted, dirty)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO workout_session(id, workout_day_id, name, exercise_ids, supersets, started_at, finished_at, updated_at, deleted, dirty)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 markClean:
 UPDATE workout_session SET dirty = 0 WHERE id = ? AND updated_at = ?;

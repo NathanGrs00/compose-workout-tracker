@@ -33,6 +33,8 @@ fun AddExerciseScreen(
     var increment by remember { mutableStateOf(Format.number(existing?.weightIncrement ?: 2.5)) }
     var targetSets by remember { mutableStateOf((existing?.targetSets ?: 3).toString()) }
     var restSeconds by remember { mutableStateOf((existing?.restSeconds ?: 90).toString()) }
+    var isBarbell by remember { mutableStateOf(existing?.isBarbell ?: false) }
+    var setupNote by remember { mutableStateOf(existing?.setupNote ?: "") }
 
     val min = repMin.toIntOrNull()
     val max = repMax.toIntOrNull()
@@ -73,6 +75,26 @@ fun AddExerciseScreen(
             onValueChange = { muscleGroup = it },
             label = "Muscle Group",
             options = muscleGroups
+        )
+
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Barbell exercise", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Shows plates per side and warm-up sets",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            androidx.compose.material3.Switch(checked = isBarbell, onCheckedChange = { isBarbell = it })
+        }
+
+        AppTextField(
+            value = setupNote,
+            onValueChange = { setupNote = it.take(300) },
+            label = "Setup note",
+            placeholder = "e.g. seat height 4, wide grip",
+            singleLine = false,
         )
 
         Text("Plan", style = MaterialTheme.typography.titleSmall)
@@ -142,12 +164,13 @@ fun AddExerciseScreen(
             text = "Save Exercise",
             onClick = {
                 if (existing == null) {
-                    viewModel.addExercise(Exercise("", name.trim(), muscleGroup, min!!, max!!, step!!, sets!!, rest!!))
+                    viewModel.addExercise(Exercise("", name.trim(), muscleGroup, min!!, max!!, step!!, sets!!, rest!!, isBarbell, setupNote.trim()))
                 } else {
                     viewModel.updateExercise(
                         existing.copy(
                             name = name.trim(), muscleGroup = muscleGroup, repMin = min!!, repMax = max!!,
                             weightIncrement = step!!, targetSets = sets!!, restSeconds = rest!!,
+                            isBarbell = isBarbell, setupNote = setupNote.trim(),
                         )
                     )
                 }

@@ -51,7 +51,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Surface
 import androidx.compose.ui.draw.clip
 import models.WorkoutDay
+import analytics.NextWorkout
+import ui.components.NumberStepper
 import ui.KeepScreenOn
+import ui.RestNotifier
 import ui.components.edgeGlow
 import ui.rememberVibrate
 import ui.theme.successColor
@@ -70,6 +73,7 @@ fun WorkoutScreen(
     repository: WorkoutRepository,
     syncIndicator: @Composable () -> Unit,
     onEditRoutine: (String?) -> Unit,
+    restNotifier: RestNotifier = RestNotifier.None,
 ) {
     // Wrapped in a Pair so "loading" (null) differs from "no workout in progress" (Pair(null)).
     val inProgress by remember { repository.inProgressSession.map { Pair(it, Unit) } }.collectAsState(null)
@@ -77,7 +81,7 @@ fun WorkoutScreen(
 
     val session = current.first
     if (session != null) {
-        ActiveWorkout(session, repository, syncIndicator)
+        ActiveWorkout(session, repository, syncIndicator, restNotifier)
     } else {
         StartWorkout(repository, syncIndicator, onEditRoutine)
     }
@@ -94,12 +98,53 @@ private fun StartWorkout(
     val sessions by repository.sessions.collectAsState(emptyList())
     val exerciseNames = remember(exercises) { exercises.associate { it.id to it.name } }
     val lastSession = sessions.firstOrNull { !it.isInProgress }
+    val upNext = remember(routines, sessions) { NextWorkout.suggest(routines, sessions) }
+    val bodyWeights by repository.bodyWeights.collectAsState(null)
+    var bodyWeightDismissed by remember { mutableStateOf(false) }
+    // Ask for body weight at most once a week.
+    val askBodyWeight = bodyWeights?.let { entries ->
+        !bodyWeightDismissed && (entries.lastOrNull()?.measuredAt ?: 0L) < nowMillis() - 7 * 24 * 3_600_000L
+    } ?: false
 
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { TabHeader("Workout", Modifier.padding(top = 16.dp)) { syncIndicator() } }
+        if (upNext != null) {
+            item {
+                val (routine, lastDone) = upNext
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Up next", style = MaterialTheme.typography.labelLarge)
+                            Text(routine.name, style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                lastDone?.let { "Last done ${Format.ago(it)}" } ?: "Not done yet",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Button(onClick = { repository.startSession(routine) }) {
+                            Icon(Icons.Default.PlayArrow, null)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Start")
+                        }
+                    }
+                }
+            }
+        }
+        if (askBodyWeight) {
+            item {
+                BodyWeightPrompt(
+                    last = bodyWeights?.lastOrNull()?.weight,
+                    onSave = { repository.logBodyWeight(it); bodyWeightDismissed = true },
+                    onDismiss = { bodyWeightDismissed = true },
+                )
+            }
+        }
         item {
             Button(
                 onClick = { repository.startSession(null) },
@@ -150,6 +195,22 @@ private fun StartWorkout(
 }
 
 @Composable
+private fun BodyWeightPrompt(last: Double?, onSave: (Double) -> Unit, onDismiss: () -> Unit) {
+    var value by remember { mutableStateOf(last?.let { Format.number(it) } ?: "") }
+    val parsed = Format.parseDecimal(value)?.takeIf { it in 20.0..400.0 }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Today's body weight?", style = MaterialTheme.typography.titleSmall)
+            NumberStepper(value, { value = it }, "kg", step = 0.1, decimal = true)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text("Not now") }
+                Button(onClick = { parsed?.let(onSave) }, enabled = parsed != null) { Text("Save") }
+            }
+        }
+    }
+}
+
+@Composable
 private fun RoutineCard(
     routine: WorkoutDay,
     exerciseNames: List<String>,
@@ -182,6 +243,7 @@ private fun ActiveWorkout(
     session: WorkoutSession,
     repository: WorkoutRepository,
     syncIndicator: @Composable () -> Unit,
+    restNotifier: RestNotifier,
 ) {
     val sets by remember(session.id) { repository.setsForSession(session.id) }.collectAsState(emptyList())
     var now by remember { mutableLongStateOf(nowMillis()) }
@@ -200,11 +262,22 @@ private fun ActiveWorkout(
     val exercises by repository.exercises.collectAsState(emptyList())
     val exerciseById = remember(exercises) { exercises.associateBy { it.id } }
     val exerciseIds = (session.exerciseIds + sets.map { it.exerciseId }).distinct()
-    val rest = RestTimer.state(sets, exerciseIds, exerciseById, now)
+    val rest = RestTimer.state(sets, exerciseIds, exerciseById, now, session.supersets)
     val glowColor = when (rest) {
         is RestState.Resting -> warningColor()
         is RestState.Done -> successColor()
-        RestState.None -> null
+        is RestState.SupersetNext, RestState.None -> null
+    }
+
+    // Countdown notification + alert when the app is in the background (Android).
+    val restEndAt = (rest as? RestState.Resting)?.endAt
+    val restOff = rest is RestState.None || rest is RestState.SupersetNext
+    val restTitle = sets.maxByOrNull { it.performedAt }?.let { exerciseById[it.exerciseId]?.name }.orEmpty()
+    LaunchedEffect(restEndAt, restOff) {
+        when {
+            restEndAt != null -> restNotifier.start(restEndAt, restTitle)
+            restOff -> restNotifier.cancel()
+        }
     }
 
     // Buzz once when rest ends (only right at the moment, not when reopening the app later).
@@ -252,7 +325,7 @@ private fun ActiveWorkout(
         }
 
         // Floating rest timer, visible wherever you've scrolled.
-        if (glowColor != null) {
+        if (rest != RestState.None) {
             Surface(
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.inverseSurface,
@@ -265,11 +338,12 @@ private fun ActiveWorkout(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Box(Modifier.size(12.dp).clip(CircleShape).background(glowColor))
+                    Box(Modifier.size(12.dp).clip(CircleShape).background(glowColor ?: MaterialTheme.colorScheme.primary))
                     Text(
                         when (rest) {
                             is RestState.Resting -> "Rest ${Format.duration(rest.remainingMillis + 999)} left"
                             is RestState.Done -> "Rest done, go! (+${Format.duration(rest.overMillis)})"
+                            is RestState.SupersetNext -> "Superset → ${exerciseById[rest.exerciseId]?.name ?: "next"}"
                             RestState.None -> ""
                         },
                         style = MaterialTheme.typography.titleMedium,

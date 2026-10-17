@@ -23,6 +23,8 @@ data class ExerciseDto(
     @SerialName("updated_at") val updatedAt: Long = 0,
     val deleted: Boolean = false,
     @SerialName("server_updated_at") val serverUpdatedAt: Long? = null,
+    @SerialName("is_barbell") val isBarbell: Boolean = false,
+    @SerialName("setup_note") val setupNote: String = "",
 )
 
 @Serializable
@@ -33,6 +35,7 @@ data class WorkoutDayDto(
     @SerialName("updated_at") val updatedAt: Long = 0,
     val deleted: Boolean = false,
     @SerialName("server_updated_at") val serverUpdatedAt: Long? = null,
+    val supersets: List<List<String>> = emptyList(),
 )
 
 @Serializable
@@ -46,6 +49,7 @@ data class WorkoutSessionDto(
     @SerialName("updated_at") val updatedAt: Long = 0,
     val deleted: Boolean = false,
     @SerialName("server_updated_at") val serverUpdatedAt: Long? = null,
+    val supersets: List<List<String>> = emptyList(),
 )
 
 @Serializable
@@ -67,6 +71,27 @@ data class ExerciseRatingDto(
     @SerialName("session_id") val sessionId: String,
     @SerialName("exercise_id") val exerciseId: String,
     val rating: String,
+    @SerialName("updated_at") val updatedAt: Long = 0,
+    val deleted: Boolean = false,
+    @SerialName("server_updated_at") val serverUpdatedAt: Long? = null,
+)
+
+@Serializable
+data class SessionNoteDto(
+    val id: String,
+    @SerialName("session_id") val sessionId: String,
+    @SerialName("exercise_id") val exerciseId: String,
+    val note: String,
+    @SerialName("updated_at") val updatedAt: Long = 0,
+    val deleted: Boolean = false,
+    @SerialName("server_updated_at") val serverUpdatedAt: Long? = null,
+)
+
+@Serializable
+data class BodyWeightDto(
+    val id: String,
+    @SerialName("measured_at") val measuredAt: Long,
+    val weight: Double,
     @SerialName("updated_at") val updatedAt: Long = 0,
     val deleted: Boolean = false,
     @SerialName("server_updated_at") val serverUpdatedAt: Long? = null,

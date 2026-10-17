@@ -35,7 +35,11 @@ class ScreenshotTest {
         val repo = WorkoutRepository(db) { time }
         repo.addStarterExercises()
         val byName = runBlocking { repo.exercises.first() }.associateBy { it.name }
-        val push = WorkoutDay("push", "Push", listOf("Bench Press", "Overhead Press", "Lateral Raise", "Triceps Pushdown").map { byName.getValue(it).id })
+        val push = WorkoutDay(
+            "push", "Push", listOf("Bench Press", "Overhead Press", "Lateral Raise", "Triceps Pushdown").map { byName.getValue(it).id },
+            supersets = listOf(byName.getValue("Lateral Raise").id to byName.getValue("Triceps Pushdown").id),
+        )
+        repo.updateExercise(byName.getValue("Bench Press").copy(setupNote = "Bench notch 3, feet flat"))
         val pull = WorkoutDay("pull", "Pull", listOf("Pull-up", "Barbell Row", "Face Pull", "Barbell Curl").map { byName.getValue(it).id })
         val legs = WorkoutDay("legs", "Legs", listOf("Squat", "Romanian Deadlift", "Leg Extension", "Calf Raise").map { byName.getValue(it).id })
         listOf(push, pull, legs).forEach(repo::saveWorkoutDay)
@@ -59,6 +63,7 @@ class ScreenshotTest {
                 repo.setRating(session.id, id, models.Rating.entries[(i + id.length) % 3])
             }
             time += 600_000
+            if (i % 4 == 0) repo.logBodyWeight(82.0 - i * 0.05)
             repo.finishSession(session.id)
         }
         // A workout in progress "now".
@@ -68,6 +73,7 @@ class ScreenshotTest {
         repo.logSet(active.id, push.exerciseIds[0], 80.0, 8)
         time += 3 * 60_000
         repo.logSet(active.id, push.exerciseIds[0], 80.0, 7)
+        repo.setSessionNote(active.id, push.exerciseIds[0], "Left shoulder a bit tight")
         return repo
     }
 

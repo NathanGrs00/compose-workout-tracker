@@ -1,0 +1,32 @@
+-- A note on one exercise in one workout ("left shoulder tight"); id = "<session_id>:<exercise_id>".
+CREATE TABLE session_note (
+    id TEXT NOT NULL PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    exercise_id TEXT NOT NULL,
+    note TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    dirty INTEGER NOT NULL DEFAULT 1
+);
+
+selectActive:
+SELECT * FROM session_note WHERE deleted = 0;
+
+selectById:
+SELECT * FROM session_note WHERE id = ?;
+
+selectForSession:
+SELECT * FROM session_note WHERE session_id = ? AND deleted = 0;
+
+selectDirty:
+SELECT * FROM session_note WHERE dirty = 1;
+
+upsert:
+INSERT OR REPLACE INTO session_note(id, session_id, exercise_id, note, updated_at, deleted, dirty)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+markClean:
+UPDATE session_note SET dirty = 0 WHERE id = ? AND updated_at = ?;
+
+countDirty:
+SELECT count(*) FROM session_note WHERE dirty = 1;

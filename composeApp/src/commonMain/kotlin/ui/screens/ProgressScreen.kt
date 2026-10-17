@@ -33,6 +33,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.TimeZone
 import models.Exercise
+import models.BodyWeightEntry
+import analytics.Insights
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
+import ui.components.NumberStepper
 import models.ExerciseRating
 import models.Rating
 import ui.components.RatingBadge
@@ -71,6 +77,7 @@ fun ProgressScreen(repository: WorkoutRepository, syncIndicator: @Composable () 
     val sets by repository.allSets.collectAsState(emptyList())
     val exercises by repository.exercises.collectAsState(emptyList())
     val ratings by repository.ratings.collectAsState(emptyList())
+    val bodyWeights by repository.bodyWeights.collectAsState(emptyList())
     var range by remember { mutableStateOf(TimeRange.QUARTER) }
 
     val now = remember(sessions, sets) { nowMillis() }
@@ -96,6 +103,8 @@ fun ProgressScreen(repository: WorkoutRepository, syncIndicator: @Composable () 
             SectionCard("No data yet") {
                 Text("Log a workout on your phone (or here) and your progress charts will appear on every device.")
             }
+            Spacer(Modifier.height(16.dp))
+            BodyWeightCard(bodyWeights, cutoff, onLog = { repository.logBodyWeight(it) }, onDelete = { repository.deleteBodyWeight(it) })
             return@Column
         }
 
@@ -110,6 +119,8 @@ fun ProgressScreen(repository: WorkoutRepository, syncIndicator: @Composable () 
             StatTile("Streak", "$streak wk", caption = "weeks in a row")
         }
         Spacer(Modifier.height(16.dp))
+        WeeklySummaryCard(validSets, sessions, exercises, now, timeZone)
+        Spacer(Modifier.height(16.dp))
 
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val wide = maxWidth >= 900.dp
@@ -117,10 +128,12 @@ fun ProgressScreen(repository: WorkoutRepository, syncIndicator: @Composable () 
                 Column(mod, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     WeeklyVolumeCard(validSets, sessions, weeks, now, timeZone)
                     MuscleGroupCard(rangeSets, exercises)
+                    FeelTrendCard(ratings, sessionsById, exercises, weeks, cutoff, now, timeZone)
+                    BodyWeightCard(bodyWeights, cutoff, onLog = { repository.logBodyWeight(it) }, onDelete = { repository.deleteBodyWeight(it) })
                 }
             }
             val exerciseSection = @Composable { mod: Modifier ->
-                ExerciseProgressCard(mod, validSets, sessionsById, exercises, ratings, cutoff)
+                ExerciseProgressCard(mod, validSets, sessionsById, exercises, ratings, cutoff, bodyWeights.lastOrNull()?.weight)
             }
             if (wide) {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -178,6 +191,7 @@ private fun ExerciseProgressCard(
     exercises: List<Exercise>,
     ratings: List<ExerciseRating>,
     cutoff: Long,
+    bodyWeight: Double?,
 ) {
     // Exercises with data, most trained first.
     val trained = remember(sets, exercises) {
@@ -236,7 +250,8 @@ private fun ExerciseProgressCard(
                 StatTile("Heaviest", Format.weight(it.weight), caption = "× ${it.reps} · ${Format.date(sessionsById[it.sessionId]?.startedAt ?: it.performedAt)}")
             }
             records.bestE1rmSet?.takeIf { records.bestE1rm > 0 }?.let {
-                StatTile("Best est. 1RM", "${Format.number(records.bestE1rm, 1)} kg", caption = Format.set(it.weight, it.reps))
+                val relative = bodyWeight?.takeIf { w -> w > 0 }?.let { w -> " · ${Format.number(records.bestE1rm / w, 2)}× BW" }.orEmpty()
+                StatTile("Best est. 1RM", "${Format.number(records.bestE1rm, 1)} kg", caption = Format.set(it.weight, it.reps) + relative)
             }
             records.mostReps?.let {
                 StatTile("Most reps", "${it.reps}", caption = if (it.weight > 0) "at ${Format.weight(it.weight)}" else "bodyweight")
@@ -312,5 +327,147 @@ private fun TableRow(a: String, b: String, c: String, d: String, header: Boolean
                 feel != null -> RatingBadge(feel)
             }
         }
+    }
+}
+
+/** This week vs last week, records, and exercises that have stopped progressing. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WeeklySummaryCard(
+    sets: List<LoggedSet>,
+    sessions: List<WorkoutSession>,
+    exercises: List<Exercise>,
+    now: Long,
+    timeZone: TimeZone,
+) {
+    val report = remember(sets, sessions, now) { Insights.weeklyReport(sets, sessions, now, timeZone) }
+    val names = remember(exercises) { exercises.associate { it.id to it.name } }
+    fun change(current: Double, previous: Double): String = when {
+        previous <= 0 && current <= 0 -> "–"
+        previous <= 0 -> "new"
+        else -> {
+            val pct = (current - previous) / previous * 100
+            (if (pct >= 0) "+" else "") + Format.number(pct, 0) + "% vs last week"
+        }
+    }
+    SectionCard("This week", subtitle = "Week of ${Format.shortDate(report.thisWeek.weekStart)}") {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatTile(
+                "Workouts", "${report.thisWeek.workouts}",
+                caption = "last week ${report.lastWeek.workouts}",
+            )
+            StatTile(
+                "Volume", Format.compact(report.thisWeek.volume) + " kg",
+                caption = change(report.thisWeek.volume, report.lastWeek.volume),
+            )
+            StatTile("Sets", "${report.thisWeek.sets}", caption = "last week ${report.lastWeek.sets}")
+            StatTile("Records", "${report.recordsThisWeek}", caption = "new est. 1RM PRs")
+        }
+        if (report.stalled.isNotEmpty()) {
+            Text("Stalled", style = MaterialTheme.typography.titleSmall)
+            report.stalled.take(4).forEach {
+                Text(
+                    "${names[it.exerciseId] ?: "?"}: no progress in ${it.sessionsWithoutProgress} sessions " +
+                        "(best est. 1RM ${Format.number(it.bestE1rm, 1)} kg). Consider a deload or a variation.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        } else {
+            Text("No stalled exercises. Keep it up.", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/** Weekly "feel" score from Good/Okay/Bad ratings and the exercises that often feel bad. */
+@Composable
+private fun FeelTrendCard(
+    ratings: List<ExerciseRating>,
+    sessions: Map<String, WorkoutSession>,
+    exercises: List<Exercise>,
+    weeks: Int,
+    cutoff: Long,
+    now: Long,
+    timeZone: TimeZone,
+) {
+    val feel = remember(ratings, sessions, weeks, now) {
+        Insights.weeklyFeel(ratings.map { it.sessionId to it.rating }, sessions, weeks.coerceAtLeast(4), now, timeZone)
+    }
+    val oftenBad = remember(ratings, sessions, cutoff) {
+        Insights.oftenBad(ratings.map { Triple(it.sessionId, it.exerciseId, it.rating) }, sessions, cutoff)
+    }
+    val names = remember(exercises) { exercises.associate { it.id to it.name } }
+    SectionCard("How training feels", subtitle = "Weekly average of your ratings: Good 100%, Okay 50%, Bad 0%") {
+        if (feel.all { it.second == null }) {
+            Text("Rate exercises Good / Okay / Bad during workouts to see this trend.", style = MaterialTheme.typography.bodySmall)
+            return@SectionCard
+        }
+        BarChart(
+            bars = feel.map { (week, score) ->
+                BarDatum(
+                    label = Format.shortDate(week),
+                    value = (score ?: 0.0) * 100,
+                    tooltip = "Week of ${Format.shortDate(week)}: " + (score?.let { "${Format.number(it * 100, 0)}%" } ?: "no ratings"),
+                )
+            },
+            yLabel = { "${Format.number(it, 0)}%" },
+            height = 160.dp,
+        )
+        if (oftenBad.isNotEmpty()) {
+            Text("Often rated Bad in this period", style = MaterialTheme.typography.titleSmall)
+            oftenBad.take(5).forEach { (id, count) ->
+                Text("${names[id] ?: "?"}: $count× Bad", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+/** Body weight log and chart. */
+@Composable
+private fun BodyWeightCard(
+    entries: List<BodyWeightEntry>,
+    cutoff: Long,
+    onLog: (Double) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    var logging by remember { mutableStateOf(false) }
+    val latest = entries.lastOrNull()
+    val monthAgo = entries.lastOrNull { latest != null && it.measuredAt <= latest.measuredAt - 30 * DAY }
+    SectionCard(
+        "Body weight",
+        subtitle = latest?.let {
+            "${Format.weight(it.weight)} · ${Format.date(it.measuredAt)}" + (monthAgo?.let { m ->
+                val diff = it.weight - m.weight
+                " · ${if (diff >= 0) "+" else ""}${Format.number(diff, 1)} kg in 30 days"
+            } ?: "")
+        } ?: "Not logged yet",
+    ) {
+        val visible = entries.filter { it.measuredAt >= cutoff }
+        if (visible.size >= 2) {
+            LineChart(
+                points = visible.map { ChartPoint(it.measuredAt, it.weight, "${Format.date(it.measuredAt)}: ${Format.weight(it.weight)}") },
+                yLabel = { Format.number(it, 1) },
+                xLabel = { Format.shortDate(Format.localDate(it)) },
+                height = 180.dp,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { logging = true }) { Text("+ Log weight") }
+            if (latest != null) {
+                TextButton(onClick = { onDelete(latest.id) }) { Text("Undo last") }
+            }
+        }
+    }
+    if (logging) {
+        var value by remember { mutableStateOf(latest?.let { Format.number(it.weight) } ?: "") }
+        val parsed = Format.parseDecimal(value)?.takeIf { it in 20.0..400.0 }
+        AlertDialog(
+            onDismissRequest = { logging = false },
+            title = { Text("Log body weight") },
+            text = { NumberStepper(value, { value = it }, "kg", step = 0.1, decimal = true) },
+            confirmButton = {
+                TextButton(onClick = { parsed?.let(onLog); logging = false }, enabled = parsed != null) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { logging = false }) { Text("Cancel") } },
+        )
     }
 }

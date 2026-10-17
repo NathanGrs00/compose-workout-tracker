@@ -10,6 +10,18 @@ It's built with Kotlin + Compose Multiplatform, so the same code runs on Android
   After the last planned set it collapses and the screen scrolls to the next exercise. **+ Extra set** is always available.
   Between sets the screen edge glows **amber** while you rest and **green** when it's time to go, the phone vibrates,
   and a floating timer counts down. The screen stays on during a workout.
+- **Rest alerts outside the app.** On Android the countdown shows in the notification shade and on the lock screen.
+  When rest is over the phone vibrates and plays the notification sound, even when it's locked.
+- **Supersets.** In a routine, tap **+ Superset** and pick 2 exercises. During the workout the app alternates A → B,
+  then rests after the pair.
+- **Plate calculator and warm-ups** for exercises marked as barbell: plates per side for the weight you enter, and
+  a warm-up ramp (empty bar, 40%, 60%, 80%) before the first set. Warm-ups are a guide and aren't logged. Set the bar
+  weight in Settings.
+- **Notes.** A permanent setup note per exercise ("seat height 4"), plus a note per workout that shows up next time.
+- **Up next.** The Workout tab suggests the routine you did least recently.
+- **Weekly summary, rating trends and body weight** on the Progress tab: this week compared with last week,
+  stalled exercises, a weekly "feel" score from your ratings, exercises often rated Bad, and a body weight chart.
+  Body weight is also asked once a week when you open the Workout tab, and is used for strength relative to body weight.
 - **Fast logging.** Start from a routine (e.g. Push/Pull/Legs) or an empty workout. Weight and reps are pre-filled from your last set or from last time. Use the big −/+ buttons, then tap **Log set**. A rest timer runs between sets.
 - **Progress & analysis:**
   - estimated 1RM, top weight, volume and max-reps charts per exercise

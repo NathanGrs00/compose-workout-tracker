@@ -6,12 +6,13 @@ import kotlinx.coroutines.SupervisorJob
 import repository.SettingsStore
 import repository.WorkoutRepository
 import repository.sync.SyncManager
+import ui.RestNotifier
 
 /**
  * Creates and holds the app's long-lived objects. One instance per process.
  * The platform supplies the SQLite driver (Android or desktop JDBC).
  */
-class AppContainer(driver: SqlDriver) {
+class AppContainer(driver: SqlDriver, val restNotifier: RestNotifier = RestNotifier.None) {
     val database = WorkoutDatabase(driver)
     val repository = WorkoutRepository(database)
     val settings = SettingsStore(database)

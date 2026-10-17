@@ -1,0 +1,28 @@
+-- Body weight measurements (kg).
+CREATE TABLE body_weight (
+    id TEXT NOT NULL PRIMARY KEY,
+    measured_at INTEGER NOT NULL,
+    weight REAL NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    dirty INTEGER NOT NULL DEFAULT 1
+);
+
+selectActive:
+SELECT * FROM body_weight WHERE deleted = 0 ORDER BY measured_at;
+
+selectById:
+SELECT * FROM body_weight WHERE id = ?;
+
+selectDirty:
+SELECT * FROM body_weight WHERE dirty = 1;
+
+upsert:
+INSERT OR REPLACE INTO body_weight(id, measured_at, weight, updated_at, deleted, dirty)
+VALUES (?, ?, ?, ?, ?, ?);
+
+markClean:
+UPDATE body_weight SET dirty = 0 WHERE id = ? AND updated_at = ?;
+
+countDirty:
+SELECT count(*) FROM body_weight WHERE dirty = 1;

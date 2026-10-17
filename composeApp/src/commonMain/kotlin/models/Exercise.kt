@@ -15,4 +15,8 @@ data class Exercise(
     val weightIncrement: Double = 2.5,
     val targetSets: Int = 3,
     val restSeconds: Int = 90,
+    /** Barbell lifts get a plate calculator and warm-up suggestions. */
+    val isBarbell: Boolean = false,
+    /** Permanent setup note, e.g. "seat height 4, wide grip". */
+    val setupNote: String = "",
 )
