@@ -149,21 +149,19 @@ fun SessionDetailScreen(
             repository = repository,
             modifier = Modifier.widthIn(max = 720.dp).padding(horizontal = 16.dp),
         ) {
-            item {
-                Column(Modifier.padding(top = 16.dp)) {
-                    ScreenHeader(current.name, onNavigateBack, backLabel = "History")
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val duration = current.finishedAt?.let { " · " + Format.durationShort(it - current.startedAt) }.orEmpty()
-                        Column(Modifier.weight(1f)) {
-                            Text("${Format.date(current.startedAt)} · ${Format.time(current.startedAt)}$duration")
-                            Text(
-                                "${sets.size} sets · ${Format.thousands(sets.sumOf { it.volume })} kg volume",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        IconButton(onClick = { confirmDelete = true }) {
-                            Icon(Icons.Default.Delete, "Delete workout", tint = MaterialTheme.colorScheme.error)
-                        }
+            Column(Modifier.padding(top = 16.dp)) {
+                ScreenHeader(current.name, onNavigateBack, backLabel = "History")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val duration = current.finishedAt?.let { " · " + Format.durationShort(it - current.startedAt) }.orEmpty()
+                    Column(Modifier.weight(1f)) {
+                        Text("${Format.date(current.startedAt)} · ${Format.time(current.startedAt)}$duration")
+                        Text(
+                            "${sets.size} sets · ${Format.thousands(sets.sumOf { it.volume })} kg volume",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = { confirmDelete = true }) {
+                        Icon(Icons.Default.Delete, "Delete workout", tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }

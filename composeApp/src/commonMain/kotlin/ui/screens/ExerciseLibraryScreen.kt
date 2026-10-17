@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import models.Exercise
+import ui.Format
 import ui.components.DeleteConfirmDialog
 import ui.components.ListItem
 import ui.components.LoadingStateHandler
@@ -81,7 +82,7 @@ fun ExerciseLibraryScreen(
                     items(shown, key = { it.id }) { exercise ->
                         ListItem(
                             title = exercise.name,
-                            subtitle = "${exercise.muscleGroup} · ${exercise.repMin}–${exercise.repMax} reps",
+                            subtitle = "${exercise.muscleGroup} · ${exercise.targetSets} × ${exercise.repMin}–${exercise.repMax} · rest ${Format.duration(exercise.restSeconds * 1000L)}",
                             onClick = { onEditExercise(exercise) },
                             onDeleteClick = { exerciseToDelete = exercise }
                         )

@@ -109,6 +109,30 @@ class ProgressionTest {
     }
 
     @Test
+    fun extraSetAddsWeight() {
+        // 3 sets planned, 4 done, not at the top of the range: still add weight because of the extra set.
+        val last = session("s1", 100, 80.0 to 9, 80.0 to 9, 80.0 to 8, 80.0 to 8)
+        val s = Progression.suggest(bench.copy(targetSets = 3), listOf(last), mapOf("s1" to Rating.OKAY))!!
+        assertEquals(82.5 to 8, s.weight to s.reps)
+        val unrated = Progression.suggest(bench.copy(targetSets = 3), listOf(last), emptyMap())!!
+        assertEquals(82.5, unrated.weight)
+    }
+
+    @Test
+    fun extraSetButBadDoesNotAddWeight() {
+        val last = session("s1", 100, 80.0 to 9, 80.0 to 9, 80.0 to 8, 80.0 to 8)
+        val s = Progression.suggest(bench.copy(targetSets = 3), listOf(last), mapOf("s1" to Rating.BAD))!!
+        assertEquals(80.0, s.weight)
+    }
+
+    @Test
+    fun plannedSetsOnlyIsNoExtra() {
+        val last = session("s1", 100, 80.0 to 9, 80.0 to 9, 80.0 to 8)
+        val s = Progression.suggest(bench.copy(targetSets = 3), listOf(last), mapOf("s1" to Rating.OKAY))!!
+        assertEquals(80.0, s.weight)
+    }
+
+    @Test
     fun roundToStep() {
         assertEquals(75.0, Progression.roundToStep(74.9, 2.5))
         assertEquals(72.5, Progression.roundToStep(72.0, 2.5))

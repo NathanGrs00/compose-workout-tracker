@@ -25,6 +25,9 @@ alter table public.exercises add column if not exists server_updated_at bigint n
 alter table public.exercises add column if not exists rep_min integer not null default 8;
 alter table public.exercises add column if not exists rep_max integer not null default 12;
 alter table public.exercises add column if not exists weight_increment double precision not null default 2.5;
+-- Planned sets per workout and rest time between sets
+alter table public.exercises add column if not exists target_sets integer not null default 3;
+alter table public.exercises add column if not exists rest_seconds integer not null default 90;
 
 -- Routines / workout templates
 create table if not exists public.workout_days (

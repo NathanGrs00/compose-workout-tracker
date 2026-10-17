@@ -1,6 +1,8 @@
 package ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -29,18 +31,25 @@ fun AddExerciseScreen(
     var repMin by remember { mutableStateOf((existing?.repMin ?: 8).toString()) }
     var repMax by remember { mutableStateOf((existing?.repMax ?: 12).toString()) }
     var increment by remember { mutableStateOf(Format.number(existing?.weightIncrement ?: 2.5)) }
+    var targetSets by remember { mutableStateOf((existing?.targetSets ?: 3).toString()) }
+    var restSeconds by remember { mutableStateOf((existing?.restSeconds ?: 90).toString()) }
 
     val min = repMin.toIntOrNull()
     val max = repMax.toIntOrNull()
     val step = Format.parseDecimal(increment)
     val rangeValid = min != null && max != null && min >= 1 && max >= min
     val stepValid = step != null && step > 0
-    val formIsValid = name.isNotBlank() && muscleGroup.isNotBlank() && rangeValid && stepValid
+    val sets = targetSets.toIntOrNull()
+    val rest = restSeconds.toIntOrNull()
+    val setsValid = sets != null && sets in 1..20
+    val restValid = rest != null && rest in 0..1800
+    val formIsValid = name.isNotBlank() && muscleGroup.isNotBlank() && rangeValid && stepValid && setsValid && restValid
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .widthIn(max = 640.dp)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -64,6 +73,32 @@ fun AddExerciseScreen(
             onValueChange = { muscleGroup = it },
             label = "Muscle Group",
             options = muscleGroups
+        )
+
+        Text("Plan", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NumberStepper(
+                value = targetSets,
+                onValueChange = { targetSets = it },
+                label = "Sets",
+                step = 1.0,
+                decimal = false,
+                modifier = Modifier.weight(1f),
+            )
+            NumberStepper(
+                value = restSeconds,
+                onValueChange = { restSeconds = it },
+                label = "Rest (sec)",
+                step = 15.0,
+                decimal = false,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Text(
+            rest?.let { "Rest ${Format.duration(it * 1000L)} between sets. " }.orEmpty() +
+                "After the planned sets the workout moves on to the next exercise; an extra set is always possible.",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (setsValid && restValid) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
         )
 
         Text("Progression", style = MaterialTheme.typography.titleSmall)
@@ -95,22 +130,25 @@ fun AddExerciseScreen(
             )
         }
         Text(
-            "Suggestions add one step of weight once you reach the max reps on every set, " +
-                "then start again from the min reps.",
+            "Suggestions add one step of weight once you reach the max reps on every set " +
+                "(or did an extra set), then start again from the min reps.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(8.dp))
 
         AppButton(
             text = "Save Exercise",
             onClick = {
                 if (existing == null) {
-                    viewModel.addExercise(name, muscleGroup, min!!, max!!, step!!)
+                    viewModel.addExercise(Exercise("", name.trim(), muscleGroup, min!!, max!!, step!!, sets!!, rest!!))
                 } else {
                     viewModel.updateExercise(
-                        existing.copy(name = name.trim(), muscleGroup = muscleGroup, repMin = min!!, repMax = max!!, weightIncrement = step!!)
+                        existing.copy(
+                            name = name.trim(), muscleGroup = muscleGroup, repMin = min!!, repMax = max!!,
+                            weightIncrement = step!!, targetSets = sets!!, restSeconds = rest!!,
+                        )
                     )
                 }
                 onExerciseSaved()

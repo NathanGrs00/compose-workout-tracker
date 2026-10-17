@@ -6,6 +6,10 @@ It's built with Kotlin + Compose Multiplatform, so the same code runs on Android
 - **Works offline.** Everything is saved on the device first. Changes sync through your own Supabase project whenever there's a connection.
 - **"How did it go?" + suggestions.** Rate each exercise Good / Okay / Bad. Next time the card shows last
   time's sets with that rating, plus a suggested weight × reps based on your rep range and recent ratings.
+- **Planned sets and rest.** Each exercise has a number of sets and a rest time. The card counts "Set 2 of 3".
+  After the last planned set it collapses and the screen scrolls to the next exercise. **+ Extra set** is always available.
+  Between sets the screen edge glows **amber** while you rest and **green** when it's time to go, the phone vibrates,
+  and a floating timer counts down. The screen stays on during a workout.
 - **Fast logging.** Start from a routine (e.g. Push/Pull/Legs) or an empty workout. Weight and reps are pre-filled from your last set or from last time. Use the big −/+ buttons, then tap **Log set**. A rest timer runs between sets.
 - **Progress & analysis:**
   - estimated 1RM, top weight, volume and max-reps charts per exercise
@@ -71,12 +75,13 @@ Versions built before 1.1.0 used a random key. Uninstall those once, then reinst
 
 ## How suggestions work
 
-Each exercise has a target rep range (default 8–12) and a weight step (default 2.5 kg), editable in
-**Library → Exercises**. Based on the previous session's working sets (the sets at the top weight) and its rating:
+Each exercise has planned sets (default 3), rest time (default 90 s), a target rep range (default 8–12)
+and a weight step (default 2.5 kg), all editable in **Library → Exercises**. Based on the previous session's working sets (the sets at the top weight) and its rating:
 
 | Last time | Suggestion |
 | --- | --- |
 | Max reps on every set, Good or Okay | Add one weight step and go back to the min reps |
+| Did an extra (unplanned) set, not Bad | Add one weight step: you had energy left |
 | Good | Same weight, one more rep |
 | Okay (or not rated) | Same weight, match your best set on every set |
 | Bad | Repeat the same weight and reps |
@@ -85,7 +90,7 @@ Each exercise has a target rep range (default 8–12) and a weight step (default
 
 Bodyweight exercises (logged with 0 kg) progress by reps.
 
-> After updating the app, run `supabase/schema.sql` again. It adds the new columns and the `exercise_ratings` table.
+> After updating the app, run `supabase/schema.sql` again. It adds any new columns and tables.
 > Until then, Settings shows "Supabase tables are out of date".
 
 ## Publishing a new version

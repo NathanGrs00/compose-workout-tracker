@@ -42,7 +42,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
+import analytics.RestState
+import analytics.RestTimer
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
 import models.WorkoutDay
+import ui.KeepScreenOn
+import ui.components.edgeGlow
+import ui.rememberVibrate
+import ui.theme.successColor
+import ui.theme.warningColor
 import models.WorkoutSession
 import repository.WorkoutRepository
 import repository.nowMillis
@@ -179,17 +192,34 @@ private fun ActiveWorkout(
 
     LaunchedEffect(Unit) {
         while (true) {
-            delay(1_000)
+            delay(250)
             now = nowMillis()
         }
     }
 
-    SessionEditor(
-        session = session,
-        repository = repository,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    ) {
-        item {
+    val exercises by repository.exercises.collectAsState(emptyList())
+    val exerciseById = remember(exercises) { exercises.associateBy { it.id } }
+    val exerciseIds = (session.exerciseIds + sets.map { it.exerciseId }).distinct()
+    val rest = RestTimer.state(sets, exerciseIds, exerciseById, now)
+    val glowColor = when (rest) {
+        is RestState.Resting -> warningColor()
+        is RestState.Done -> successColor()
+        RestState.None -> null
+    }
+
+    // Buzz once when rest ends (only right at the moment, not when reopening the app later).
+    val vibrate = rememberVibrate()
+    val doneSetId = (rest as? RestState.Done)?.takeIf { it.overMillis < 3_000 }?.lastSetId
+    LaunchedEffect(doneSetId) { if (doneSetId != null) vibrate() }
+    KeepScreenOn()
+
+    Box(Modifier.fillMaxSize().edgeGlow(glowColor, pulse = rest is RestState.Done)) {
+        SessionEditor(
+            session = session,
+            repository = repository,
+            autoAdvance = true,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        ) {
             Column(Modifier.padding(top = 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -211,21 +241,39 @@ private fun ActiveWorkout(
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            "Duration ${Format.duration(now - session.startedAt)} · ${sets.size} sets",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        val lastSet = sets.maxByOrNull { it.performedAt }
-                        if (lastSet != null && now - lastSet.performedAt < 30 * 60_000) {
-                            Text(
-                                "Rest ${Format.duration(now - lastSet.performedAt)}",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
+                    Text(
+                        "Duration ${Format.duration(now - session.startedAt)} · ${sets.size} sets",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
                     Button(onClick = { confirmFinish = true }) { Text("Finish") }
+                }
+            }
+        }
+
+        // Floating rest timer, visible wherever you've scrolled.
+        if (glowColor != null) {
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                shadowElevation = 4.dp,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 20.dp),
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(Modifier.size(12.dp).clip(CircleShape).background(glowColor))
+                    Text(
+                        when (rest) {
+                            is RestState.Resting -> "Rest ${Format.duration(rest.remainingMillis + 999)} left"
+                            is RestState.Done -> "Rest done, go! (+${Format.duration(rest.overMillis)})"
+                            RestState.None -> ""
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                    )
                 }
             }
         }

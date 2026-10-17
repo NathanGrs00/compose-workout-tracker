@@ -56,8 +56,10 @@ class WorkoutRepository(
         repMin: Int = 8,
         repMax: Int = 12,
         weightIncrement: Double = 2.5,
+        targetSets: Int = 3,
+        restSeconds: Int = 90,
     ): Exercise {
-        val exercise = Exercise(newId(), name.trim(), muscleGroup, repMin, repMax, weightIncrement)
+        val exercise = Exercise(newId(), name.trim(), muscleGroup, repMin, repMax, weightIncrement, targetSets, restSeconds)
         writeExercise(exercise, previousUpdatedAt = null, deleted = false)
         changed()
         return exercise
@@ -80,6 +82,7 @@ class WorkoutRepository(
         db.exerciseQueries.upsert(
             exercise.id, exercise.name, exercise.muscleGroup,
             repMin.toLong(), exercise.repMax.coerceAtLeast(repMin).toLong(), exercise.weightIncrement.coerceAtLeast(0.25),
+            exercise.targetSets.coerceAtLeast(1).toLong(), exercise.restSeconds.coerceAtLeast(0).toLong(),
             editTime(previousUpdatedAt), if (deleted) 1 else 0, 1,
         )
     }

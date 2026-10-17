@@ -1,0 +1,3 @@
+-- Version 2 -> 3: planned sets and rest time per exercise.
+ALTER TABLE exercise ADD COLUMN target_sets INTEGER NOT NULL DEFAULT 3;
+ALTER TABLE exercise ADD COLUMN rest_seconds INTEGER NOT NULL DEFAULT 90;

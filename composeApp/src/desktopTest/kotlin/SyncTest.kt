@@ -190,7 +190,7 @@ class RatingAndMigrationTest {
         val remote = FakeRemote()
         val phone = Device(remote, startClock = 1_000)
         val pc = Device(remote, startClock = 50_000)
-        val bench = phone.repo.addExercise("Bench Press", "Chest", repMin = 5, repMax = 8, weightIncrement = 1.25)
+        val bench = phone.repo.addExercise("Bench Press", "Chest", repMin = 5, repMax = 8, weightIncrement = 1.25, targetSets = 4, restSeconds = 180)
         val session = phone.repo.startSession(null)
         phone.repo.logSet(session.id, bench.id, 80.0, 8)
         phone.repo.setRating(session.id, bench.id, models.Rating.GOOD)
@@ -201,6 +201,7 @@ class RatingAndMigrationTest {
         val pcBench = pc.repo.exercises.first().single()
         assertEquals(5 to 8, pcBench.repMin to pcBench.repMax)
         assertEquals(1.25, pcBench.weightIncrement)
+        assertEquals(4 to 180, pcBench.targetSets to pcBench.restSeconds)
         assertEquals(models.Rating.GOOD, pc.repo.ratings.first().single().rating)
 
         // Change the rating on the PC; the phone follows. Clearing removes it everywhere.
@@ -250,6 +251,9 @@ class RatingAndMigrationTest {
             assertEquals("Bench Press", bench.name)
             assertEquals(8 to 12, bench.repMin to bench.repMax)
             assertEquals(2.5, bench.weightIncrement)
+            assertEquals(3 to 90, bench.targetSets to bench.restSeconds)
+            repo.updateExercise(bench.copy(targetSets = 4, restSeconds = 150))
+            assertEquals(4 to 150, repo.exercises.first().single().let { it.targetSets to it.restSeconds })
             val session = repo.startSession(null)
             repo.setRating(session.id, bench.id, models.Rating.GOOD)
             assertEquals(1, repo.ratings.first().size)

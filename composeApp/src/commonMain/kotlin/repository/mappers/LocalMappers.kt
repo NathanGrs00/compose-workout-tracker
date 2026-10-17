@@ -23,6 +23,8 @@ fun ExerciseRow.toExercise() = Exercise(
     repMin = rep_min.toInt(),
     repMax = rep_max.toInt(),
     weightIncrement = weight_increment,
+    targetSets = target_sets.toInt(),
+    restSeconds = rest_seconds.toInt(),
 )
 
 /** Null if the stored rating is unknown (e.g. written by a newer app version). */

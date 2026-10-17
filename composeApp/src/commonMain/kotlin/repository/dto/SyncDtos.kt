@@ -18,6 +18,8 @@ data class ExerciseDto(
     @SerialName("rep_min") val repMin: Int = 8,
     @SerialName("rep_max") val repMax: Int = 12,
     @SerialName("weight_increment") val weightIncrement: Double = 2.5,
+    @SerialName("target_sets") val targetSets: Int = 3,
+    @SerialName("rest_seconds") val restSeconds: Int = 90,
     @SerialName("updated_at") val updatedAt: Long = 0,
     val deleted: Boolean = false,
     @SerialName("server_updated_at") val serverUpdatedAt: Long? = null,

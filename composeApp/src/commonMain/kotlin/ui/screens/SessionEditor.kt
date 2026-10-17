@@ -15,7 +15,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import ui.theme.successColor
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -64,14 +67,18 @@ import ui.components.NumberStepper
  * Editable view of one workout: exercise cards with logged sets and quick inputs.
  * Used for the workout in progress and for editing past workouts.
  * [header] is placed above the exercise list inside the same scrolling column.
+ * With [autoAdvance], finishing the planned sets of an exercise scrolls to the next unfinished one.
  */
 @Composable
 fun SessionEditor(
     session: WorkoutSession,
     repository: WorkoutRepository,
     modifier: Modifier = Modifier,
-    header: LazyListScope.() -> Unit = {},
+    autoAdvance: Boolean = false,
+    header: @Composable () -> Unit = {},
 ) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     val exercises by repository.exercises.collectAsState(emptyList())
     val sessionSets by remember(session.id) { repository.setsForSession(session.id) }.collectAsState(emptyList())
     val allSets by repository.allSets.collectAsState(emptyList())
@@ -85,12 +92,25 @@ fun SessionEditor(
     // Exercises in session order, plus any that only appear in sets (e.g. synced from another device).
     val exerciseIds = (session.exerciseIds + sessionSets.map { it.exerciseId }).distinct()
 
+    fun plannedSets(id: String) = exerciseById[id]?.targetSets ?: 3
+
+    /** Scrolls to the next exercise (after [exerciseId], wrapping around) that still has planned sets left. */
+    fun advanceFrom(exerciseId: String) {
+        val index = exerciseIds.indexOf(exerciseId)
+        val next = (exerciseIds.drop(index + 1) + exerciseIds.take(index))
+            .firstOrNull { id -> sessionSets.count { it.exerciseId == id } < plannedSets(id) }
+            ?: return
+        // Item 0 is the header.
+        scope.launch { listState.animateScrollToItem(1 + exerciseIds.indexOf(next)) }
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
+        state = listState,
         contentPadding = PaddingValues(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        header()
+        item(key = "header") { header() }
         items(exerciseIds, key = { it }) { exerciseId ->
             val setsForExercise = sessionSets.filter { it.exerciseId == exerciseId }
             val exercise = exerciseById[exerciseId]
@@ -115,7 +135,10 @@ fun SessionEditor(
                 recordSetIds = recordIds,
                 canMoveUp = exerciseIds.first() != exerciseId,
                 canMoveDown = exerciseIds.last() != exerciseId,
-                onLog = { weight, reps -> repository.logSet(session.id, exerciseId, weight, reps) },
+                onLog = { weight, reps ->
+                    repository.logSet(session.id, exerciseId, weight, reps)
+                    if (autoAdvance && setsForExercise.size + 1 == plannedSets(exerciseId)) advanceFrom(exerciseId)
+                },
                 onUpdateSet = repository::updateSet,
                 onDeleteSet = { repository.deleteSet(it.id) },
                 onRemove = { repository.removeExerciseFromSession(session.id, exerciseId) },
@@ -173,6 +196,11 @@ private fun ExerciseCard(
     var menuOpen by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf(false) }
     var editingSet by remember { mutableStateOf<LoggedSet?>(null) }
+    // A card collapses once its planned sets are done; it can be reopened for an extra set or edits.
+    var expanded by remember(exerciseId) { mutableStateOf(false) }
+    val target = exercise?.targetSets ?: 3
+    val complete = sets.size >= target
+    val collapsed = complete && !expanded
 
     // Pre-fill: repeat today's last set; before the first set use the suggestion (or last time's first set).
     val prefill: Pair<Double, Int>? = sets.lastOrNull()?.let { it.weight to it.reps }
@@ -194,10 +222,15 @@ private fun ExerciseCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(exercise?.name ?: "Unknown exercise", style = MaterialTheme.typography.titleMedium)
-                    if (exercise != null) {
-                        Text(exercise.muscleGroup, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (exercise != null && !collapsed) {
+                        Text(
+                            "${exercise.muscleGroup} · ${exercise.repMin}–${exercise.repMax} reps · rest ${Format.duration(exercise.restSeconds * 1000L)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
+                SetProgressLabel(done = sets.size, target = target, collapsed = collapsed)
                 Box {
                     IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, "Exercise options") }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -214,7 +247,24 @@ private fun ExerciseCard(
                 }
             }
 
-            if (previous != null) {
+            if (collapsed) {
+                Text(
+                    sets.mapIndexed { i, set -> Format.set(set.weight, set.reps) + if (i >= target) " (extra)" else "" }.joinToString(" · "),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth().clickable { expanded = true },
+                )
+                RatingSelector(selected = rating, onSelect = onRate)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { expanded = true }) {
+                        Icon(Icons.Default.Add, null)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Extra set")
+                    }
+                    TextButton(onClick = { expanded = true }) { Text("Edit sets") }
+                }
+            }
+
+            if (!collapsed && previous != null) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         "Last time (${Format.date(previous.date)}): " + previous.sets.joinToString(", ") { Format.set(it.weight, it.reps) },
@@ -226,7 +276,7 @@ private fun ExerciseCard(
                 }
             }
 
-            if (suggestion != null && sets.isEmpty()) {
+            if (!collapsed && suggestion != null && sets.isEmpty()) {
                 Surface(
                     color = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -246,25 +296,33 @@ private fun ExerciseCard(
                 }
             }
 
-            sets.forEachIndexed { index, set ->
-                SetRow(index + 1, set, isRecord = set.id in recordSetIds, onClick = { editingSet = set })
-            }
+            if (!collapsed) {
+                sets.forEachIndexed { index, set ->
+                    SetRow(index + 1, set, isRecord = set.id in recordSetIds, isExtra = index >= target, onClick = { editingSet = set })
+                }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                NumberStepper(weight, { weight = it }, "kg", step = exercise?.weightIncrement ?: 2.5, decimal = true, modifier = Modifier.weight(1f))
-                NumberStepper(reps, { reps = it }, "reps", step = 1.0, decimal = false, modifier = Modifier.weight(1f))
-            }
-            Button(
-                onClick = { onLog(parsedWeight ?: 0.0, parsedReps ?: 0) },
-                enabled = canLog,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Default.Check, null)
-                Spacer(Modifier.width(8.dp))
-                Text("Log set ${sets.size + 1}")
-            }
-            if (sets.isNotEmpty()) {
-                RatingSelector(selected = rating, onSelect = onRate)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    NumberStepper(weight, { weight = it }, "kg", step = exercise?.weightIncrement ?: 2.5, decimal = true, modifier = Modifier.weight(1f))
+                    NumberStepper(reps, { reps = it }, "reps", step = 1.0, decimal = false, modifier = Modifier.weight(1f))
+                }
+                Button(
+                    onClick = {
+                        onLog(parsedWeight ?: 0.0, parsedReps ?: 0)
+                        if (sets.size + 1 >= target) expanded = false
+                    },
+                    enabled = canLog,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.Check, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (complete) "Log extra set" else "Log set ${sets.size + 1} of $target")
+                }
+                if (sets.isNotEmpty()) {
+                    RatingSelector(selected = rating, onSelect = onRate)
+                }
+                if (complete) {
+                    TextButton(onClick = { expanded = false }, modifier = Modifier.align(Alignment.End)) { Text("Done") }
+                }
             }
         }
     }
@@ -294,7 +352,18 @@ private fun ExerciseCard(
 }
 
 @Composable
-private fun SetRow(number: Int, set: LoggedSet, isRecord: Boolean, onClick: () -> Unit) {
+private fun SetProgressLabel(done: Int, target: Int, collapsed: Boolean) {
+    val color = if (done >= target) successColor() else MaterialTheme.colorScheme.onSurfaceVariant
+    val text = when {
+        collapsed -> "✓ $done/$target"
+        done >= target -> "Extra set"
+        else -> "Set ${done + 1} of $target"
+    }
+    Text(text, style = MaterialTheme.typography.labelLarge, color = color, modifier = Modifier.padding(horizontal = 4.dp))
+}
+
+@Composable
+private fun SetRow(number: Int, set: LoggedSet, isRecord: Boolean, isExtra: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -311,6 +380,9 @@ private fun SetRow(number: Int, set: LoggedSet, isRecord: Boolean, onClick: () -
             fontWeight = FontWeight.Medium,
             modifier = Modifier.weight(1f),
         )
+        if (isExtra) {
+            Text("Extra", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
+        }
         if (isRecord) {
             Icon(Icons.Default.Star, "Personal record", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
         }
