@@ -91,8 +91,9 @@ Bodyweight exercises (logged with 0 kg) progress by reps.
 ## Publishing a new version
 
 1. Bump `versionCode`/`versionName` (and `packageVersion`) in `composeApp/build.gradle.kts`.
-2. Push a tag: `git tag v1.2.0 && git push origin v1.2.0`.
-3. GitHub Actions builds the app and creates a release with `WorkoutTracker.apk` and the `.msi` attached.
+2. Merge into `master`, or open **Actions → Build → Run workflow** on any branch.
+3. GitHub Actions builds the app and creates release `v<versionName>` with `WorkoutTracker.apk` and the `.msi` attached.
+   If that version was already released, nothing new is published.
 
 ## How sync works
 

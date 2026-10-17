@@ -56,25 +56,47 @@ jobs:
           name: workout-tracker-windows
           path: composeApp/build/compose/binaries/main/msi/*.msi
 
-  # Pushing a tag like v1.2.0 publishes a GitHub Release with the APK and the Windows installer.
+  # Publishes a GitHub Release named after versionName (e.g. v1.1.0) with the APK and the Windows installer.
+  # Runs on pushes to master and when started manually (Actions -> Build -> Run workflow).
+  # Skipped if a release for that version already exists, so bump versionName for each new release.
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     needs: [android-and-tests, windows-installer]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
+      - uses: actions/checkout@v4
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' composeApp/build.gradle.kts)
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release v$VERSION already exists, skipping. Bump versionName to publish a new one."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/download-artifact@v4
+        if: steps.version.outputs.exists == 'false'
         with:
           path: artifacts
       - name: Name the release files
+        if: steps.version.outputs.exists == 'false'
         run: |
           mkdir release
           cp artifacts/workout-tracker-android/*.apk release/WorkoutTracker.apk
-          cp artifacts/workout-tracker-windows/*.msi "release/WorkoutTracker-${GITHUB_REF_NAME#v}.msi"
+          cp artifacts/workout-tracker-windows/*.msi "release/WorkoutTracker-${{ steps.version.outputs.version }}.msi"
           ls -l release
       - uses: softprops/action-gh-release@v2
+        if: steps.version.outputs.exists == 'false'
         with:
-          name: Workout Tracker ${{ github.ref_name }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Workout Tracker ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           files: release/*
