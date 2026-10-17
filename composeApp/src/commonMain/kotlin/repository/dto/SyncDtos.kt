@@ -15,6 +15,9 @@ data class ExerciseDto(
     val id: String,
     val name: String,
     @SerialName("muscle_group") val muscleGroup: String,
+    @SerialName("rep_min") val repMin: Int = 8,
+    @SerialName("rep_max") val repMax: Int = 12,
+    @SerialName("weight_increment") val weightIncrement: Double = 2.5,
     @SerialName("updated_at") val updatedAt: Long = 0,
     val deleted: Boolean = false,
     @SerialName("server_updated_at") val serverUpdatedAt: Long? = null,
@@ -51,6 +54,17 @@ data class LoggedSetDto(
     val weight: Double,
     val reps: Int,
     @SerialName("performed_at") val performedAt: Long,
+    @SerialName("updated_at") val updatedAt: Long = 0,
+    val deleted: Boolean = false,
+    @SerialName("server_updated_at") val serverUpdatedAt: Long? = null,
+)
+
+@Serializable
+data class ExerciseRatingDto(
+    val id: String,
+    @SerialName("session_id") val sessionId: String,
+    @SerialName("exercise_id") val exerciseId: String,
+    val rating: String,
     @SerialName("updated_at") val updatedAt: Long = 0,
     val deleted: Boolean = false,
     @SerialName("server_updated_at") val serverUpdatedAt: Long? = null,

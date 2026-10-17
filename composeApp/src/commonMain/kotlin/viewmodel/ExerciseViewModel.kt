@@ -29,8 +29,8 @@ class ExerciseViewModel(private val repository: WorkoutRepository) {
         .catch { emit(ExerciseUiState.Error(it.message ?: "Failed to load exercises")) }
         .stateIn(scope, SharingStarted.Eagerly, ExerciseUiState.Loading)
 
-    fun addExercise(name: String, muscleGroup: String) {
-        repository.addExercise(name, muscleGroup)
+    fun addExercise(name: String, muscleGroup: String, repMin: Int = 8, repMax: Int = 12, weightIncrement: Double = 2.5) {
+        repository.addExercise(name, muscleGroup, repMin, repMax, weightIncrement)
     }
 
     fun updateExercise(exercise: Exercise) {

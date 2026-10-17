@@ -2,9 +2,14 @@ package models
 
 /**
  * This is a class to represent an exercise, which consists of an ID, a name, and a muscle group.
+ * [repMin]..[repMax] is the target rep range and [weightIncrement] the weight step (kg),
+ * both used to suggest the next weight and reps.
  */
 data class Exercise(
     val id: String,
     val name: String,
-    val muscleGroup: String
+    val muscleGroup: String,
+    val repMin: Int = 8,
+    val repMax: Int = 12,
+    val weightIncrement: Double = 2.5,
 )

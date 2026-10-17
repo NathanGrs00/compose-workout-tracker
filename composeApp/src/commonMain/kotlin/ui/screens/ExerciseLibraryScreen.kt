@@ -81,7 +81,7 @@ fun ExerciseLibraryScreen(
                     items(shown, key = { it.id }) { exercise ->
                         ListItem(
                             title = exercise.name,
-                            subtitle = exercise.muscleGroup,
+                            subtitle = "${exercise.muscleGroup} · ${exercise.repMin}–${exercise.repMax} reps",
                             onClick = { onEditExercise(exercise) },
                             onDeleteClick = { exerciseToDelete = exercise }
                         )

@@ -195,6 +195,19 @@ object Analytics {
         return records
     }
 
+    /** Earlier sessions of [exerciseId] before [currentSessionId], most recent first. */
+    fun previousSessions(
+        exerciseId: String,
+        currentSessionId: String,
+        sets: List<LoggedSet>,
+        sessions: Map<String, WorkoutSession>,
+    ): List<SessionPoint> {
+        val currentStart = sessions[currentSessionId]?.startedAt ?: Long.MAX_VALUE
+        return exerciseHistory(exerciseId, sets, sessions)
+            .filter { it.sessionId != currentSessionId && it.date <= currentStart }
+            .reversed()
+    }
+
     /** Sets of the most recent other session in which [exerciseId] was done (for "last time" hints). */
     fun previousPerformance(
         exerciseId: String,
