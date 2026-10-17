@@ -1,0 +1,37 @@
+-- One logged set: weight x reps for an exercise within a workout session.
+CREATE TABLE logged_set (
+    id TEXT NOT NULL PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    exercise_id TEXT NOT NULL,
+    weight REAL NOT NULL,
+    reps INTEGER NOT NULL,
+    performed_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    dirty INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX logged_set_session ON logged_set(session_id);
+CREATE INDEX logged_set_exercise ON logged_set(exercise_id);
+
+selectActive:
+SELECT * FROM logged_set WHERE deleted = 0 ORDER BY performed_at;
+
+selectForSession:
+SELECT * FROM logged_set WHERE session_id = ? AND deleted = 0 ORDER BY performed_at;
+
+selectById:
+SELECT * FROM logged_set WHERE id = ?;
+
+selectDirty:
+SELECT * FROM logged_set WHERE dirty = 1;
+
+upsert:
+INSERT OR REPLACE INTO logged_set(id, session_id, exercise_id, weight, reps, performed_at, updated_at, deleted, dirty)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+markClean:
+UPDATE logged_set SET dirty = 0 WHERE id = ? AND updated_at = ?;
+
+countDirty:
+SELECT count(*) FROM logged_set WHERE dirty = 1;

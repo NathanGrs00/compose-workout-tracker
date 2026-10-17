@@ -1,0 +1,28 @@
+-- A routine / workout template, e.g. "Push day". exercise_ids is comma separated, in order.
+CREATE TABLE workout_day (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    exercise_ids TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    dirty INTEGER NOT NULL DEFAULT 1
+);
+
+selectActive:
+SELECT * FROM workout_day WHERE deleted = 0 ORDER BY name COLLATE NOCASE;
+
+selectById:
+SELECT * FROM workout_day WHERE id = ?;
+
+selectDirty:
+SELECT * FROM workout_day WHERE dirty = 1;
+
+upsert:
+INSERT OR REPLACE INTO workout_day(id, name, exercise_ids, updated_at, deleted, dirty)
+VALUES (?, ?, ?, ?, ?, ?);
+
+markClean:
+UPDATE workout_day SET dirty = 0 WHERE id = ? AND updated_at = ?;
+
+countDirty:
+SELECT count(*) FROM workout_day WHERE dirty = 1;

@@ -1,16 +1,30 @@
+rootProject.name = "compose-workout-tracker"
+
 pluginManagement {
     repositories {
-        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-        google()
         gradlePluginPortal()
         mavenCentral()
-    }
-
-    plugins {
-        kotlin("jvm").version(extra["kotlin.version"] as String)
-        id("org.jetbrains.compose").version(extra["compose.version"] as String)
-        id("org.jetbrains.kotlin.plugin.compose").version(extra["kotlin.version"] as String)
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
     }
 }
 
-rootProject.name = "compose-workout-tracker"
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+    }
+}
+
+include(":composeApp")

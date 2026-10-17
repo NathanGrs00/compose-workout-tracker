@@ -1,0 +1,56 @@
+name: Build
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  android-and-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Tests (incl. screenshot rendering)
+        run: ./gradlew :composeApp:desktopTest --stacktrace
+      - name: Build Android APK
+        run: ./gradlew :composeApp:assembleRelease --stacktrace
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: workout-tracker-android
+          path: composeApp/build/outputs/apk/release/*.apk
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: composeApp/build/screenshots/
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: composeApp/build/reports/tests/
+
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build MSI installer
+        run: ./gradlew :composeApp:packageMsi --stacktrace
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: workout-tracker-windows
+          path: composeApp/build/compose/binaries/main/msi/*.msi
