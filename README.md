@@ -4,6 +4,8 @@ Log your sets on your **Android phone** at the gym, then analyse your progress w
 It's built with Kotlin + Compose Multiplatform, so the same code runs on Android and on desktop (Windows, macOS, Linux).
 
 - **Works offline.** Everything is saved on the device first. Changes sync through your own Supabase project whenever there's a connection.
+- **"How did it go?" + suggestions.** Rate each exercise Good / Okay / Bad. Next time the card shows last
+  time's sets with that rating, plus a suggested weight × reps based on your rep range and recent ratings.
 - **Fast logging.** Start from a routine (e.g. Push/Pull/Legs) or an empty workout. Weight and reps are pre-filled from your last set or from last time. Use the big −/+ buttons, then tap **Log set**. A rest timer runs between sets.
 - **Progress & analysis:**
   - estimated 1RM, top weight, volume and max-reps charts per exercise
@@ -62,7 +64,27 @@ Then open **Settings** in the app and paste the same URL and key. To build it yo
 ```
 
 Or open the project in Android Studio and run the `composeApp` configuration.
-The APK is signed with the debug key so it can be sideloaded. If you ever switch to a different signing key, you'll need to uninstall the old version first.
+The APK is signed with a fixed key (`composeApp/release.keystore`), so new builds install as an update over the old one.
+Versions built before 1.1.0 used a random key. Uninstall those once, then reinstall and enter the Supabase settings again: your synced data downloads back.
+
+## How suggestions work
+
+Each exercise has a target rep range (default 8–12) and a weight step (default 2.5 kg), editable in
+**Library → Exercises**. Based on the previous session's working sets (the sets at the top weight) and its rating:
+
+| Last time | Suggestion |
+| --- | --- |
+| Max reps on every set, Good or Okay | Add one weight step and go back to the min reps |
+| Good | Same weight, one more rep |
+| Okay (or not rated) | Same weight, match your best set on every set |
+| Bad | Repeat the same weight and reps |
+| Bad and below the min reps | One weight step lighter |
+| Bad twice in a row | Drop about 10% and rebuild |
+
+Bodyweight exercises (logged with 0 kg) progress by reps.
+
+> After updating the app, run `supabase/schema.sql` again. It adds the new columns and the `exercise_ratings` table.
+> Until then, Settings shows "Supabase tables are out of date".
 
 ## How sync works
 

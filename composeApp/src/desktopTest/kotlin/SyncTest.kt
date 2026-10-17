@@ -183,3 +183,77 @@ class SyncTest {
         assertEquals(SyncStatus.NotConfigured, sync.state.value.status)
     }
 }
+
+class RatingAndMigrationTest {
+    @Test
+    fun ratingsAndRepRangesSyncBetweenDevices() = runBlocking {
+        val remote = FakeRemote()
+        val phone = Device(remote, startClock = 1_000)
+        val pc = Device(remote, startClock = 50_000)
+        val bench = phone.repo.addExercise("Bench Press", "Chest", repMin = 5, repMax = 8, weightIncrement = 1.25)
+        val session = phone.repo.startSession(null)
+        phone.repo.logSet(session.id, bench.id, 80.0, 8)
+        phone.repo.setRating(session.id, bench.id, models.Rating.GOOD)
+        phone.repo.finishSession(session.id)
+        phone.sync.syncNow()
+        pc.sync.syncNow()
+
+        val pcBench = pc.repo.exercises.first().single()
+        assertEquals(5 to 8, pcBench.repMin to pcBench.repMax)
+        assertEquals(1.25, pcBench.weightIncrement)
+        assertEquals(models.Rating.GOOD, pc.repo.ratings.first().single().rating)
+
+        // Change the rating on the PC; the phone follows. Clearing removes it everywhere.
+        pc.repo.setRating(session.id, bench.id, models.Rating.BAD)
+        pc.sync.syncNow(); phone.sync.syncNow()
+        assertEquals(models.Rating.BAD, phone.repo.ratings.first().single().rating)
+        phone.repo.setRating(session.id, bench.id, null)
+        phone.sync.syncNow(); pc.sync.syncNow()
+        assertTrue(pc.repo.ratings.first().isEmpty())
+    }
+
+    @Test
+    fun deletingWorkoutRemovesItsRatings() = runBlocking {
+        val phone = Device(FakeRemote(), startClock = 1_000)
+        val ex = phone.repo.addExercise("Squat", "Quads")
+        val session = phone.repo.startSession(null)
+        phone.repo.logSet(session.id, ex.id, 100.0, 5)
+        phone.repo.setRating(session.id, ex.id, models.Rating.OKAY)
+        phone.repo.deleteSession(session.id)
+        assertTrue(phone.repo.ratings.first().isEmpty())
+    }
+
+    @Test
+    fun upgradesVersion1Database() {
+        val file = java.io.File.createTempFile("workout-v1", ".db").apply { delete(); deleteOnExit() }
+        val url = "jdbc:sqlite:${file.absolutePath}"
+        // A database as created by the first release (schema version 1).
+        java.sql.DriverManager.getConnection(url).use { c ->
+            c.createStatement().use { st ->
+                st.executeUpdate(
+                    "CREATE TABLE exercise (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, muscle_group TEXT NOT NULL, " +
+                        "updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1)"
+                )
+                st.executeUpdate("CREATE TABLE workout_day (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, exercise_ids TEXT NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1)")
+                st.executeUpdate("CREATE TABLE workout_session (id TEXT NOT NULL PRIMARY KEY, workout_day_id TEXT, name TEXT NOT NULL, exercise_ids TEXT NOT NULL, started_at INTEGER NOT NULL, finished_at INTEGER, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1)")
+                st.executeUpdate("CREATE TABLE logged_set (id TEXT NOT NULL PRIMARY KEY, session_id TEXT NOT NULL, exercise_id TEXT NOT NULL, weight REAL NOT NULL, reps INTEGER NOT NULL, performed_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, dirty INTEGER NOT NULL DEFAULT 1)")
+                st.executeUpdate("CREATE TABLE setting (key TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL)")
+                st.executeUpdate("INSERT INTO exercise VALUES ('e1', 'Bench Press', 'Chest', 5, 0, 0)")
+                st.executeUpdate("PRAGMA user_version = 1")
+            }
+        }
+
+        val driver = JdbcSqliteDriver(url, java.util.Properties(), WorkoutDatabase.Schema)
+        val repo = WorkoutRepository(WorkoutDatabase(driver))
+        runBlocking {
+            val bench = repo.exercises.first().single()
+            assertEquals("Bench Press", bench.name)
+            assertEquals(8 to 12, bench.repMin to bench.repMax)
+            assertEquals(2.5, bench.weightIncrement)
+            val session = repo.startSession(null)
+            repo.setRating(session.id, bench.id, models.Rating.GOOD)
+            assertEquals(1, repo.ratings.first().size)
+        }
+        driver.close()
+    }
+}

@@ -1,6 +1,6 @@
 -- Workout Tracker: Supabase schema.
 -- Run this once in the Supabase dashboard: SQL Editor -> New query -> paste -> Run.
--- Safe to run again; it also upgrades the old "exercises" table in place.
+-- Safe to run again; it upgrades existing tables in place. Re-run it after updating the app.
 
 -- Sets server_updated_at on every insert/update, so devices can pull only what changed.
 create or replace function public.set_server_updated_at() returns trigger
@@ -21,6 +21,10 @@ alter table public.exercises add column if not exists updated_at bigint not null
 alter table public.exercises add column if not exists deleted boolean not null default false;
 alter table public.exercises add column if not exists server_updated_at bigint not null
   default (extract(epoch from clock_timestamp()) * 1000)::bigint;
+-- Target rep range and weight step used for weight/reps suggestions
+alter table public.exercises add column if not exists rep_min integer not null default 8;
+alter table public.exercises add column if not exists rep_max integer not null default 12;
+alter table public.exercises add column if not exists weight_increment double precision not null default 2.5;
 
 -- Routines / workout templates
 create table if not exists public.workout_days (
@@ -58,10 +62,21 @@ create table if not exists public.logged_sets (
   server_updated_at bigint not null default (extract(epoch from clock_timestamp()) * 1000)::bigint
 );
 
+-- How an exercise went in a workout (GOOD / OKAY / BAD); id = "<session_id>:<exercise_id>"
+create table if not exists public.exercise_ratings (
+  id text primary key,
+  session_id text not null,
+  exercise_id text not null,
+  rating text not null,
+  updated_at bigint not null default 0,
+  deleted boolean not null default false,
+  server_updated_at bigint not null default (extract(epoch from clock_timestamp()) * 1000)::bigint
+);
+
 do $$
 declare t text;
 begin
-  foreach t in array array['exercises', 'workout_days', 'workout_sessions', 'logged_sets'] loop
+  foreach t in array array['exercises', 'workout_days', 'workout_sessions', 'logged_sets', 'exercise_ratings'] loop
     execute format('drop trigger if exists set_server_updated_at on public.%I', t);
     execute format('create trigger set_server_updated_at before insert or update on public.%I
                     for each row execute function public.set_server_updated_at()', t);

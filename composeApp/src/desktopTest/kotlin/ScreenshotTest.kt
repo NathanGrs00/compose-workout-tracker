@@ -56,6 +56,7 @@ class ScreenshotTest {
                     time += 150_000
                     repo.logSet(session.id, id, (weight * 4).toInt() / 4.0, 8 + (i % 3) - set)
                 }
+                repo.setRating(session.id, id, models.Rating.entries[(i + id.length) % 3])
             }
             time += 600_000
             repo.finishSession(session.id)

@@ -1,0 +1,33 @@
+-- How an exercise went in a workout: GOOD, OKAY or BAD. One row per (session, exercise);
+-- id is "<session_id>:<exercise_id>" so two devices rating the same exercise don't create duplicates.
+CREATE TABLE exercise_rating (
+    id TEXT NOT NULL PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    exercise_id TEXT NOT NULL,
+    rating TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    dirty INTEGER NOT NULL DEFAULT 1
+);
+
+selectActive:
+SELECT * FROM exercise_rating WHERE deleted = 0;
+
+selectById:
+SELECT * FROM exercise_rating WHERE id = ?;
+
+selectForSession:
+SELECT * FROM exercise_rating WHERE session_id = ? AND deleted = 0;
+
+selectDirty:
+SELECT * FROM exercise_rating WHERE dirty = 1;
+
+upsert:
+INSERT OR REPLACE INTO exercise_rating(id, session_id, exercise_id, rating, updated_at, deleted, dirty)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+markClean:
+UPDATE exercise_rating SET dirty = 0 WHERE id = ? AND updated_at = ?;
+
+countDirty:
+SELECT count(*) FROM exercise_rating WHERE dirty = 1;

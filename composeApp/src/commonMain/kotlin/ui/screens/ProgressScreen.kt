@@ -33,6 +33,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.TimeZone
 import models.Exercise
+import models.ExerciseRating
+import models.Rating
+import ui.components.RatingBadge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.Alignment
 import models.LoggedSet
 import models.WorkoutSession
 import repository.WorkoutRepository
@@ -65,6 +70,7 @@ fun ProgressScreen(repository: WorkoutRepository, syncIndicator: @Composable () 
     val sessions by repository.sessions.collectAsState(emptyList())
     val sets by repository.allSets.collectAsState(emptyList())
     val exercises by repository.exercises.collectAsState(emptyList())
+    val ratings by repository.ratings.collectAsState(emptyList())
     var range by remember { mutableStateOf(TimeRange.QUARTER) }
 
     val now = remember(sessions, sets) { nowMillis() }
@@ -114,7 +120,7 @@ fun ProgressScreen(repository: WorkoutRepository, syncIndicator: @Composable () 
                 }
             }
             val exerciseSection = @Composable { mod: Modifier ->
-                ExerciseProgressCard(mod, validSets, sessionsById, exercises, cutoff)
+                ExerciseProgressCard(mod, validSets, sessionsById, exercises, ratings, cutoff)
             }
             if (wide) {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -170,6 +176,7 @@ private fun ExerciseProgressCard(
     sets: List<LoggedSet>,
     sessionsById: Map<String, WorkoutSession>,
     exercises: List<Exercise>,
+    ratings: List<ExerciseRating>,
     cutoff: Long,
 ) {
     // Exercises with data, most trained first.
@@ -200,16 +207,21 @@ private fun ExerciseProgressCard(
         }
 
         val history = remember(sets, sessionsById, selected.id) { Analytics.exerciseHistory(selected.id, sets, sessionsById) }
+        val ratingBySession = remember(ratings, selected.id) {
+            ratings.filter { it.exerciseId == selected.id }.associate { it.sessionId to it.rating }
+        }
         val visible = history.filter { it.date >= cutoff }
         val unit = if (metric == ProgressMetric.MAX_REPS) "reps" else "kg"
-        val values = visible.map { it.date to metric.valueOf(it) }.filter { it.second > 0 }
+        val visibleValues = visible.map { Triple(it.date, metric.valueOf(it), ratingBySession[it.sessionId]) }.filter { it.second > 0 }
+        val values = visibleValues.map { it.first to it.second }
 
         if (values.isEmpty()) {
             Text("No ${metric.label.lowercase()} data for ${selected.name} in this period.")
         } else {
             LineChart(
-                points = values.map { (date, value) ->
-                    ChartPoint(date, value, "${Format.date(date)}: ${Format.number(value, 1)} $unit")
+                points = visibleValues.map { (date, value, rating) ->
+                    val feel = rating?.let { " · ${it.label}" }.orEmpty()
+                    ChartPoint(date, value, "${Format.date(date)}: ${Format.number(value, 1)} $unit$feel")
                 },
                 yLabel = { Format.compact(it) },
                 xLabel = { Format.shortDate(Format.localDate(it)) },
@@ -235,7 +247,7 @@ private fun ExerciseProgressCard(
         }
 
         Text("Recent sessions", style = MaterialTheme.typography.titleSmall)
-        RecentSessionsTable(history.takeLast(8).reversed())
+        RecentSessionsTable(history.takeLast(8).reversed(), ratingBySession)
     }
 }
 
@@ -269,7 +281,7 @@ private fun TrendText(values: List<Pair<Long, Double>>, unit: String) {
 }
 
 @Composable
-private fun RecentSessionsTable(points: List<SessionPoint>) {
+private fun RecentSessionsTable(points: List<SessionPoint>, ratings: Map<String, Rating>) {
     Column(Modifier.widthIn(max = 640.dp)) {
         TableRow("Date", "Best set", "Est. 1RM", "Volume", header = true)
         HorizontalDivider()
@@ -279,13 +291,14 @@ private fun RecentSessionsTable(points: List<SessionPoint>) {
                 Format.set(p.bestSet.weight, p.bestSet.reps),
                 if (p.bestE1rm > 0) Format.number(p.bestE1rm, 1) else "–",
                 Format.thousands(p.volume),
+                feel = ratings[p.sessionId],
             )
         }
     }
 }
 
 @Composable
-private fun TableRow(a: String, b: String, c: String, d: String, header: Boolean = false) {
+private fun TableRow(a: String, b: String, c: String, d: String, header: Boolean = false, feel: Rating? = null) {
     val style = if (header) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall
     val color = if (header) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -293,5 +306,11 @@ private fun TableRow(a: String, b: String, c: String, d: String, header: Boolean
         Text(b, style = style, color = color, modifier = Modifier.weight(1f))
         Text(c, style = style, color = color, modifier = Modifier.weight(0.8f), textAlign = TextAlign.End)
         Text(d, style = style, color = color, modifier = Modifier.weight(0.9f), textAlign = TextAlign.End)
+        Box(Modifier.weight(0.8f), contentAlignment = Alignment.CenterEnd) {
+            when {
+                header -> Text("Feel", style = style, color = color)
+                feel != null -> RatingBadge(feel)
+            }
+        }
     }
 }

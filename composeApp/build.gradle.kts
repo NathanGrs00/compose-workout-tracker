@@ -112,8 +112,18 @@ android {
         applicationId = "com.nathan.workouttracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
+    }
+    signingConfigs {
+        // A fixed key committed to the repo, so every build (local or CI) can be installed as an update
+        // over the previous one. Fine for a personal sideloaded app; don't use it for a Play Store release.
+        create("sideload") {
+            storeFile = file("release.keystore")
+            storePassword = "workout-tracker"
+            keyAlias = "workout"
+            keyPassword = "workout-tracker"
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -132,8 +142,7 @@ android {
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
-            // Signed with the debug key so the release APK can be sideloaded directly.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("sideload")
         }
     }
 }
@@ -145,7 +154,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
             packageName = "WorkoutTracker"
-            packageVersion = "1.0.0"
+            packageVersion = "1.1.0"
             description = "Workout tracker with progress analytics"
             modules("java.sql")
             windows {

@@ -114,7 +114,11 @@ class SyncManager(
             _state.update {
                 it.copy(
                     status = if (offline) SyncStatus.Offline else SyncStatus.Error,
-                    message = if (offline) "No connection, changes are saved on this device" else (e.message ?: e.toString()).take(300),
+                    message = when {
+                        offline -> "No connection, changes are saved on this device"
+                        e.isOutdatedSchema() -> "Supabase tables are out of date: run supabase/schema.sql again in the SQL editor"
+                        else -> (e.message ?: e.toString()).take(300)
+                    },
                 )
             }
             false
@@ -194,6 +198,12 @@ private fun Throwable.isNetworkError(): Boolean {
         current = current.cause
     }
     return false
+}
+
+/** PostgREST errors for a missing table/column, i.e. schema.sql hasn't been re-run after an app update. */
+private fun Throwable.isOutdatedSchema(): Boolean {
+    val text = (message ?: "") + (cause?.message ?: "")
+    return listOf("schema cache", "does not exist", "PGRST204", "PGRST205", "42P01", "42703").any { it in text }
 }
 
 private val NETWORK_EXCEPTIONS = setOf(

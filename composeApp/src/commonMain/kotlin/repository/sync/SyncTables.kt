@@ -3,6 +3,7 @@ package repository.sync
 import db.WorkoutDatabase
 import kotlinx.serialization.KSerializer
 import repository.dto.ExerciseDto
+import repository.dto.ExerciseRatingDto
 import repository.dto.LoggedSetDto
 import repository.dto.WorkoutDayDto
 import repository.dto.WorkoutSessionDto
@@ -37,12 +38,20 @@ fun syncTables(db: WorkoutDatabase): List<SyncTable<*>> = listOf(
         id = { it.id }, updatedAt = { it.updatedAt }, serverUpdatedAt = { it.serverUpdatedAt },
         dirtyRows = {
             db.exerciseQueries.selectDirty().executeAsList().map {
-                ExerciseDto(it.id, it.name, it.muscle_group, it.updated_at, it.deleted.bool())
+                ExerciseDto(
+                    it.id, it.name, it.muscle_group, it.rep_min.toInt(), it.rep_max.toInt(), it.weight_increment,
+                    it.updated_at, it.deleted.bool(),
+                )
             }
         },
         markClean = { id, updatedAt -> db.exerciseQueries.markClean(id, updatedAt) },
         localVersion = { id -> db.exerciseQueries.selectById(id).executeAsOneOrNull()?.let { it.updated_at to it.dirty.bool() } },
-        writeClean = { db.exerciseQueries.upsert(it.id, it.name, it.muscleGroup, it.updatedAt, it.deleted.long(), 0) },
+        writeClean = {
+            db.exerciseQueries.upsert(
+                it.id, it.name, it.muscleGroup, it.repMin.toLong(), it.repMax.toLong(), it.weightIncrement,
+                it.updatedAt, it.deleted.long(), 0,
+            )
+        },
     ),
     SyncTable(
         remoteName = "workout_days",
@@ -97,6 +106,21 @@ fun syncTables(db: WorkoutDatabase): List<SyncTable<*>> = listOf(
                 it.id, it.sessionId, it.exerciseId, it.weight, it.reps.toLong(), it.performedAt,
                 it.updatedAt, it.deleted.long(), 0,
             )
+        },
+    ),
+    SyncTable(
+        remoteName = "exercise_ratings",
+        serializer = ExerciseRatingDto.serializer(),
+        id = { it.id }, updatedAt = { it.updatedAt }, serverUpdatedAt = { it.serverUpdatedAt },
+        dirtyRows = {
+            db.exerciseRatingQueries.selectDirty().executeAsList().map {
+                ExerciseRatingDto(it.id, it.session_id, it.exercise_id, it.rating, it.updated_at, it.deleted.bool())
+            }
+        },
+        markClean = { id, updatedAt -> db.exerciseRatingQueries.markClean(id, updatedAt) },
+        localVersion = { id -> db.exerciseRatingQueries.selectById(id).executeAsOneOrNull()?.let { it.updated_at to it.dirty.bool() } },
+        writeClean = {
+            db.exerciseRatingQueries.upsert(it.id, it.sessionId, it.exerciseId, it.rating, it.updatedAt, it.deleted.long(), 0)
         },
     ),
 )

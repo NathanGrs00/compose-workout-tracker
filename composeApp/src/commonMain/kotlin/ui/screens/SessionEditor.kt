@@ -46,7 +46,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import analytics.Progression
+import analytics.SessionPoint
+import analytics.Suggestion
 import models.Exercise
+import models.Rating
+import ui.components.RatingBadge
+import ui.components.RatingSelector
 import models.LoggedSet
 import models.WorkoutSession
 import repository.WorkoutRepository
@@ -73,6 +79,7 @@ fun SessionEditor(
     val sessionsById = remember(sessions) { sessions.associateBy { it.id } }
     val recordIds = remember(allSets, sessionsById) { Analytics.recordSetIds(allSets, sessionsById) }
     val exerciseById = remember(exercises) { exercises.associateBy { it.id } }
+    val ratings by repository.ratings.collectAsState(emptyList())
     var showPicker by remember { mutableStateOf(false) }
 
     // Exercises in session order, plus any that only appear in sets (e.g. synced from another device).
@@ -86,14 +93,25 @@ fun SessionEditor(
         header()
         items(exerciseIds, key = { it }) { exerciseId ->
             val setsForExercise = sessionSets.filter { it.exerciseId == exerciseId }
-            val previous = remember(allSets, sessionsById, exerciseId) {
-                Analytics.previousPerformance(exerciseId, session.id, allSets, sessionsById)
+            val exercise = exerciseById[exerciseId]
+            val history = remember(allSets, sessionsById, exerciseId) {
+                Analytics.previousSessions(exerciseId, session.id, allSets, sessionsById)
+            }
+            val exerciseRatings = remember(ratings, exerciseId) {
+                ratings.filter { it.exerciseId == exerciseId }.associate { it.sessionId to it.rating }
+            }
+            val suggestion = remember(history, exerciseRatings, exercise) {
+                exercise?.let { Progression.suggest(it, history, exerciseRatings) }
             }
             ExerciseCard(
                 exerciseId = exerciseId,
-                exercise = exerciseById[exerciseId],
+                exercise = exercise,
                 sets = setsForExercise,
-                previous = previous,
+                previous = history.firstOrNull(),
+                previousRating = history.firstOrNull()?.let { exerciseRatings[it.sessionId] },
+                suggestion = suggestion,
+                rating = exerciseRatings[session.id],
+                onRate = { repository.setRating(session.id, exerciseId, it) },
                 recordSetIds = recordIds,
                 canMoveUp = exerciseIds.first() != exerciseId,
                 canMoveDown = exerciseIds.last() != exerciseId,
@@ -136,7 +154,11 @@ private fun ExerciseCard(
     exerciseId: String,
     exercise: Exercise?,
     sets: List<LoggedSet>,
-    previous: List<LoggedSet>,
+    previous: SessionPoint?,
+    previousRating: Rating?,
+    suggestion: Suggestion?,
+    rating: Rating?,
+    onRate: (Rating?) -> Unit,
     recordSetIds: Set<String>,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
@@ -152,13 +174,16 @@ private fun ExerciseCard(
     var confirmRemove by remember { mutableStateOf(false) }
     var editingSet by remember { mutableStateOf<LoggedSet?>(null) }
 
-    // Suggest the next set: repeat the last set of today, otherwise the matching set from last time.
-    val suggestion = sets.lastOrNull() ?: previous.getOrNull(sets.size) ?: previous.lastOrNull()
-    LaunchedEffect(exerciseId, suggestion?.id) {
-        if (suggestion != null && weight.isEmpty() && reps.isEmpty()) {
-            weight = if (suggestion.weight > 0) Format.number(suggestion.weight) else ""
-            reps = suggestion.reps.toString()
-        }
+    // Pre-fill: repeat today's last set; before the first set use the suggestion (or last time's first set).
+    val prefill: Pair<Double, Int>? = sets.lastOrNull()?.let { it.weight to it.reps }
+        ?: suggestion?.let { it.weight to it.reps }
+        ?: previous?.sets?.firstOrNull()?.let { it.weight to it.reps }
+    fun apply(values: Pair<Double, Int>) {
+        weight = if (values.first > 0) Format.number(values.first) else ""
+        reps = values.second.toString()
+    }
+    LaunchedEffect(exerciseId, prefill) {
+        if (prefill != null && weight.isEmpty() && reps.isEmpty()) apply(prefill)
     }
     val parsedWeight = if (weight.isBlank()) 0.0 else Format.parseDecimal(weight)
     val parsedReps = reps.toIntOrNull()
@@ -189,12 +214,36 @@ private fun ExerciseCard(
                 }
             }
 
-            if (previous.isNotEmpty()) {
-                Text(
-                    "Last time: " + previous.joinToString(", ") { Format.set(it.weight, it.reps) },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            if (previous != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Last time (${Format.date(previous.date)}): " + previous.sets.joinToString(", ") { Format.set(it.weight, it.reps) },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (previousRating != null) RatingBadge(previousRating)
+                }
+            }
+
+            if (suggestion != null && sets.isEmpty()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Suggested: " + if (suggestion.weight > 0) "${Format.weight(suggestion.weight)} × ${suggestion.reps}" else "${suggestion.reps} reps",
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            Text(suggestion.reason, style = MaterialTheme.typography.bodySmall)
+                        }
+                        TextButton(onClick = { apply(suggestion.weight to suggestion.reps) }) { Text("Use") }
+                    }
+                }
             }
 
             sets.forEachIndexed { index, set ->
@@ -202,7 +251,7 @@ private fun ExerciseCard(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                NumberStepper(weight, { weight = it }, "kg", step = 2.5, decimal = true, modifier = Modifier.weight(1f))
+                NumberStepper(weight, { weight = it }, "kg", step = exercise?.weightIncrement ?: 2.5, decimal = true, modifier = Modifier.weight(1f))
                 NumberStepper(reps, { reps = it }, "reps", step = 1.0, decimal = false, modifier = Modifier.weight(1f))
             }
             Button(
@@ -213,6 +262,9 @@ private fun ExerciseCard(
                 Icon(Icons.Default.Check, null)
                 Spacer(Modifier.width(8.dp))
                 Text("Log set ${sets.size + 1}")
+            }
+            if (sets.isNotEmpty()) {
+                RatingSelector(selected = rating, onSelect = onRate)
             }
         }
     }
