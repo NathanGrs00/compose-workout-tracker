@@ -39,7 +39,7 @@ It's built with Kotlin + Compose Multiplatform, so the same code runs on Android
 
 ### 2. PC app
 
-You can download the Windows installer (`workout-tracker-windows`) from the latest [GitHub Actions build](../../actions), or run from source:
+Download the Windows installer (`.msi`) from the latest [release](../../releases/latest), or run from source:
 
 ```bash
 ./gradlew :composeApp:run
@@ -56,7 +56,9 @@ Otherwise open **Settings** in the app and paste the URL and key. Desktop data i
 
 ### 3. Android app
 
-Download the APK (`workout-tracker-android`) from the latest [GitHub Actions build](../../actions) and install it on your phone. You'll need to allow installing from unknown sources.
+On your phone, download the APK from the latest release:
+**[WorkoutTracker.apk](../../releases/latest/download/WorkoutTracker.apk)** (or see [Releases](../../releases)).
+Open it to install. You'll need to allow installing from unknown sources.
 Then open **Settings** in the app and paste the same URL and key. To build it yourself:
 
 ```bash
@@ -85,6 +87,12 @@ Bodyweight exercises (logged with 0 kg) progress by reps.
 
 > After updating the app, run `supabase/schema.sql` again. It adds the new columns and the `exercise_ratings` table.
 > Until then, Settings shows "Supabase tables are out of date".
+
+## Publishing a new version
+
+1. Bump `versionCode`/`versionName` (and `packageVersion`) in `composeApp/build.gradle.kts`.
+2. Push a tag: `git tag v1.2.0 && git push origin v1.2.0`.
+3. GitHub Actions builds the app and creates a release with `WorkoutTracker.apk` and the `.msi` attached.
 
 ## How sync works
 
