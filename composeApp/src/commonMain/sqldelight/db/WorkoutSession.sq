@@ -1,0 +1,36 @@
+-- A performed workout. finished_at is NULL while the workout is in progress.
+CREATE TABLE workout_session (
+    id TEXT NOT NULL PRIMARY KEY,
+    workout_day_id TEXT,
+    name TEXT NOT NULL,
+    exercise_ids TEXT NOT NULL,
+    started_at INTEGER NOT NULL,
+    finished_at INTEGER,
+    updated_at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    dirty INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX workout_session_started ON workout_session(started_at);
+
+selectActive:
+SELECT * FROM workout_session WHERE deleted = 0 ORDER BY started_at DESC;
+
+selectInProgress:
+SELECT * FROM workout_session WHERE deleted = 0 AND finished_at IS NULL ORDER BY started_at DESC LIMIT 1;
+
+selectById:
+SELECT * FROM workout_session WHERE id = ?;
+
+selectDirty:
+SELECT * FROM workout_session WHERE dirty = 1;
+
+upsert:
+INSERT OR REPLACE INTO workout_session(id, workout_day_id, name, exercise_ids, started_at, finished_at, updated_at, deleted, dirty)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+markClean:
+UPDATE workout_session SET dirty = 0 WHERE id = ? AND updated_at = ?;
+
+countDirty:
+SELECT count(*) FROM workout_session WHERE dirty = 1;
