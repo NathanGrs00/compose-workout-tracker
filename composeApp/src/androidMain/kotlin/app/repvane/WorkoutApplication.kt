@@ -1,4 +1,4 @@
-package com.nathan.workouttracker
+package app.repvane
 
 import AppContainer
 import android.app.Application

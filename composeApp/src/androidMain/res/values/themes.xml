@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Navy window background so the launch matches the in-app splash screen. -->
+    <style name="Theme.Repvane" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/repvane_navy</item>
+        <item name="android:statusBarColor">@color/repvane_navy</item>
+        <item name="android:navigationBarColor">@color/repvane_navy</item>
+    </style>
+</resources>

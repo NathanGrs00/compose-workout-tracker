@@ -1,4 +1,4 @@
-package com.nathan.workouttracker
+package app.repvane
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -58,7 +58,7 @@ class RestTimerService : Service() {
         // Keep the CPU awake just long enough to fire the alert while the screen is off.
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = getSystemService(PowerManager::class.java)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WorkoutTracker:rest")
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Repvane:rest")
             .apply { acquire(remaining + 10_000) }
         handler.removeCallbacks(finish)
         handler.postDelayed(finish, remaining)

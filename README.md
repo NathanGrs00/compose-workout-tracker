@@ -1,4 +1,4 @@
-# Workout Tracker
+# Repvane
 
 Log your sets on your **Android phone** at the gym, then analyse your progress with charts on your **PC**, in the same app.
 It's built with Kotlin + Compose Multiplatform, so the same code runs on Android and on desktop (Windows, macOS, Linux).
@@ -71,12 +71,12 @@ supabase.url=https://xyzcompany.supabase.co
 supabase.key=your-anon-key
 ```
 
-Otherwise open **Settings** in the app and paste the URL and key. Desktop data is stored in `~/.workout-tracker/workout.db`.
+Otherwise open **Settings** in the app and paste the URL and key. Desktop data is stored in `~/.repvane/workout.db` (moved automatically from `~/.workout-tracker` used by older versions).
 
 ### 3. Android app
 
 On your phone, download the APK from the latest release:
-**[WorkoutTracker.apk](../../releases/latest/download/WorkoutTracker.apk)** (or see [Releases](../../releases)).
+**[Repvane.apk](../../releases/latest/download/Repvane.apk)** (or see [Releases](../../releases)).
 Open it to install. You'll need to allow installing from unknown sources.
 Then open **Settings** in the app and paste the same URL and key. To build it yourself:
 
@@ -86,6 +86,8 @@ Then open **Settings** in the app and paste the same URL and key. To build it yo
 
 Or open the project in Android Studio and run the `composeApp` configuration.
 The APK is signed with a fixed key (`composeApp/release.keystore`), so new builds install as an update over the old one.
+Version 1.5.0 changed the app ID to `app.repvane`, so it installs as a new app next to older "Workout Tracker" installs:
+make sure the old app shows "Synced", install Repvane, enter your Supabase settings, then uninstall the old app.
 Versions built before 1.1.0 used a random key. Uninstall those once, then reinstall and enter the Supabase settings again: your synced data downloads back.
 
 ## How suggestions work
@@ -113,7 +115,7 @@ Bodyweight exercises (logged with 0 kg) progress by reps. For assisted exercises
 
 1. Bump `versionCode`/`versionName` (and `packageVersion`) in `composeApp/build.gradle.kts`.
 2. Merge into `master`, or open **Actions → Build → Run workflow** on any branch.
-3. GitHub Actions builds the app and creates release `v<versionName>` with `WorkoutTracker.apk` and the `.msi` attached.
+3. GitHub Actions builds the app and creates release `v<versionName>` with `Repvane.apk` and the `.msi` attached.
    If that version was already released, nothing new is published.
 
 ## How sync works

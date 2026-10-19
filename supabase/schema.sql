@@ -1,4 +1,4 @@
--- Workout Tracker: Supabase schema.
+-- Repvane: Supabase schema.
 -- Run this once in the Supabase dashboard: SQL Editor -> New query -> paste -> Run.
 -- Safe to run again; it upgrades existing tables in place. Re-run it after updating the app.
 

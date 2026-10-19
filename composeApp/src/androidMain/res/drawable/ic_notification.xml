@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Monochrome dumbbell for the status bar -->
+<!-- Monochrome Repvane mark for the status bar -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path android:fillColor="#FFFFFFFF" android:pathData="M4,8h2v8h-2z M7,6h2v12h-2z M15,6h2v12h-2z M18,8h2v8h-2z M9,11h6v2h-6z M2,10.5h2v3h-2z M20,10.5h2v3h-2z" />
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <path
+        android:pathData="M100,30 a70,70 0 1,1 0,140 a70,70 0 1,1 0,-140"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="12" />
+    <group android:rotation="45" android:pivotX="100" android:pivotY="100">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M93,62 h14 v76 h-14 z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M78,44 h44 v26 h-44 z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M78,130 h44 v26 h-44 z" />
+    </group>
 </vector>

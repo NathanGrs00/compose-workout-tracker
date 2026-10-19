@@ -37,6 +37,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import models.Exercise
 import ui.PlatformBackHandler
+import ui.brand.SplashScreen
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import ui.LocalBarWeight
 import androidx.compose.runtime.CompositionLocalProvider
 import ui.components.SyncIndicator
@@ -70,6 +77,7 @@ sealed class Screen {
 /**
  * Main application composable: adaptive navigation between tabs and sub-screens.
  * Narrow windows (phones) get a bottom bar; wide windows (PC) get a side rail and open on Progress.
+ * A short branded splash screen shows on launch.
  */
 @Composable
 fun App(container: AppContainer) {
@@ -83,6 +91,11 @@ fun App(container: AppContainer) {
     var libraryTab by remember { mutableIntStateOf(0) }
     val backStack = remember { mutableStateListOf<Screen>() }
     var barWeight by remember { mutableStateOf(container.settings.barWeight) }
+    var showSplash by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        delay(900)
+        showSplash = false
+    }
 
     fun push(screen: Screen) = backStack.add(screen)
     fun pop() {
@@ -97,86 +110,93 @@ fun App(container: AppContainer) {
 
     CompositionLocalProvider(LocalBarWeight provides barWeight) {
         WorkoutTheme {
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                    val wide = maxWidth >= 720.dp
-                    val tab = selectedTab ?: if (wide) Tab.Progress else Tab.Workout
-                    val selectTab: (Tab) -> Unit = {
-                        selectedTab = it
-                        backStack.clear()
-                    }
+            Box(Modifier.fillMaxSize()) {
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+                        val wide = maxWidth >= 720.dp
+                        val tab = selectedTab ?: if (wide) Tab.Progress else Tab.Workout
+                        val selectTab: (Tab) -> Unit = {
+                            selectedTab = it
+                            backStack.clear()
+                        }
 
-                    val content: @Composable (Modifier) -> Unit = { modifier ->
-                        Box(modifier, contentAlignment = Alignment.TopCenter) {
-                            when (val screen = backStack.lastOrNull()) {
-                                is Screen.SessionDetail -> SessionDetailScreen(screen.sessionId, repository, onNavigateBack = ::pop)
-                                is Screen.RoutineEditor -> RoutineEditorScreen(screen.routineId, repository, onDone = ::pop)
-                                is Screen.ExerciseEditor -> AddExerciseScreen(
-                                    viewModel = exerciseViewModel,
-                                    onExerciseSaved = ::pop,
-                                    onNavigateBack = ::pop,
-                                    existing = screen.exercise,
-                                )
-                                null -> when (tab) {
-                                    Tab.Workout -> WorkoutScreen(
-                                        repository, syncIndicator,
-                                        onEditRoutine = { push(Screen.RoutineEditor(it)) },
-                                        restNotifier = container.restNotifier,
+                        val content: @Composable (Modifier) -> Unit = { modifier ->
+                            Box(modifier, contentAlignment = Alignment.TopCenter) {
+                                when (val screen = backStack.lastOrNull()) {
+                                    is Screen.SessionDetail -> SessionDetailScreen(screen.sessionId, repository, onNavigateBack = ::pop)
+                                    is Screen.RoutineEditor -> RoutineEditorScreen(screen.routineId, repository, onDone = ::pop)
+                                    is Screen.ExerciseEditor -> AddExerciseScreen(
+                                        viewModel = exerciseViewModel,
+                                        onExerciseSaved = ::pop,
+                                        onNavigateBack = ::pop,
+                                        existing = screen.exercise,
                                     )
-                                    Tab.History -> HistoryScreen(repository, syncIndicator, onOpenSession = { push(Screen.SessionDetail(it)) })
-                                    Tab.Progress -> ProgressScreen(repository, syncIndicator)
-                                    Tab.Library -> LibraryScreen(
-                                        repository = repository,
-                                        exerciseViewModel = exerciseViewModel,
-                                        syncIndicator = syncIndicator,
-                                        selectedTab = libraryTab,
-                                        onSelectTab = { libraryTab = it },
-                                        onAddExercise = { push(Screen.ExerciseEditor(null)) },
-                                        onEditExercise = { push(Screen.ExerciseEditor(it)) },
-                                        onEditRoutine = { push(Screen.RoutineEditor(it)) },
-                                    )
-                                    Tab.Settings -> SettingsScreen(
-                                        container.settings, container.syncManager, syncState, pendingChanges,
-                                        barWeight = barWeight,
-                                        onBarWeightChange = {
-                                            container.settings.barWeight = it
-                                            barWeight = it
-                                        },
-                                    )
+                                    null -> when (tab) {
+                                        Tab.Workout -> WorkoutScreen(
+                                            repository, syncIndicator,
+                                            onEditRoutine = { push(Screen.RoutineEditor(it)) },
+                                            restNotifier = container.restNotifier,
+                                        )
+                                        Tab.History -> HistoryScreen(repository, syncIndicator, onOpenSession = { push(Screen.SessionDetail(it)) })
+                                        Tab.Progress -> ProgressScreen(repository, syncIndicator)
+                                        Tab.Library -> LibraryScreen(
+                                            repository = repository,
+                                            exerciseViewModel = exerciseViewModel,
+                                            syncIndicator = syncIndicator,
+                                            selectedTab = libraryTab,
+                                            onSelectTab = { libraryTab = it },
+                                            onAddExercise = { push(Screen.ExerciseEditor(null)) },
+                                            onEditExercise = { push(Screen.ExerciseEditor(it)) },
+                                            onEditRoutine = { push(Screen.RoutineEditor(it)) },
+                                        )
+                                        Tab.Settings -> SettingsScreen(
+                                            container.settings, container.syncManager, syncState, pendingChanges,
+                                            barWeight = barWeight,
+                                            onBarWeightChange = {
+                                                container.settings.barWeight = it
+                                                barWeight = it
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if (wide) {
-                        Row(Modifier.fillMaxSize()) {
-                            NavigationRail(Modifier.fillMaxHeight().padding(top = 8.dp)) {
-                                Tab.entries.forEach { t ->
-                                    NavigationRailItem(
-                                        selected = t == tab,
-                                        onClick = { selectTab(t) },
-                                        icon = { Icon(t.icon, null) },
-                                        label = { Text(t.label) },
-                                    )
+                        if (wide) {
+                            Row(Modifier.fillMaxSize()) {
+                                NavigationRail(Modifier.fillMaxHeight().padding(top = 8.dp)) {
+                                    Tab.entries.forEach { t ->
+                                        NavigationRailItem(
+                                            selected = t == tab,
+                                            onClick = { selectTab(t) },
+                                            icon = { Icon(t.icon, null) },
+                                            label = { Text(t.label) },
+                                        )
+                                    }
                                 }
+                                content(Modifier.weight(1f).fillMaxHeight())
                             }
-                            content(Modifier.weight(1f).fillMaxHeight())
-                        }
-                    } else {
-                        Column(Modifier.fillMaxSize()) {
-                            content(Modifier.weight(1f))
-                            NavigationBar(windowInsets = WindowInsets(0)) {
-                                Tab.entries.forEach { t ->
-                                    NavigationBarItem(
-                                        selected = t == tab,
-                                        onClick = { selectTab(t) },
-                                        icon = { Icon(t.icon, null) },
-                                        label = { Text(t.label, maxLines = 1) },
-                                    )
+                        } else {
+                            Column(Modifier.fillMaxSize()) {
+                                content(Modifier.weight(1f))
+                                NavigationBar(windowInsets = WindowInsets(0)) {
+                                    Tab.entries.forEach { t ->
+                                        NavigationBarItem(
+                                            selected = t == tab,
+                                            onClick = { selectTab(t) },
+                                            icon = { Icon(t.icon, null) },
+                                            label = { Text(t.label, maxLines = 1) },
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+                }
+
+                // Branded launch screen, fades out once the app is ready.
+                AnimatedVisibility(visible = showSplash, enter = EnterTransition.None, exit = fadeOut(tween(400))) {
+                    SplashScreen()
                 }
             }
         }
