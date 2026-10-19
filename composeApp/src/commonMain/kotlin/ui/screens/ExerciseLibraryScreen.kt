@@ -82,7 +82,7 @@ fun ExerciseLibraryScreen(
                     items(shown, key = { it.id }) { exercise ->
                         ListItem(
                             title = exercise.name,
-                            subtitle = "${exercise.muscleGroup} · ${exercise.targetSets} × ${exercise.repMin}–${exercise.repMax} · rest ${Format.duration(exercise.restSeconds * 1000L)}",
+                            subtitle = "${exercise.muscleGroup}${if (exercise.isAssisted) " · assisted" else ""} · ${exercise.targetSets} × ${exercise.repMin}–${exercise.repMax} · rest ${Format.duration(exercise.restSeconds * 1000L)}",
                             onClick = { onEditExercise(exercise) },
                             onDeleteClick = { exerciseToDelete = exercise }
                         )

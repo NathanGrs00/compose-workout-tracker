@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import ui.theme.successColor
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -259,8 +260,10 @@ private fun ExerciseCard(
     val prefill: Pair<Double, Int>? = sets.lastOrNull()?.let { it.weight to it.reps }
         ?: suggestion?.let { it.weight to it.reps }
         ?: previous?.sets?.firstOrNull()?.let { it.weight to it.reps }
+    // Assisted exercises: the field holds the assistance (positive); sets store it as a negative weight.
+    val assisted = exercise?.isAssisted == true
     fun apply(values: Pair<Double, Int>) {
-        weight = if (values.first > 0) Format.number(values.first) else ""
+        weight = if (values.first != 0.0) Format.number(abs(values.first)) else ""
         reps = values.second.toString()
     }
     LaunchedEffect(exerciseId, prefill) {
@@ -269,6 +272,7 @@ private fun ExerciseCard(
     val parsedWeight = if (weight.isBlank()) 0.0 else Format.parseDecimal(weight)
     val parsedReps = reps.toIntOrNull()
     val canLog = parsedWeight != null && parsedReps != null && parsedReps > 0
+    val loggedWeight = parsedWeight?.let { if (assisted) -it else it }
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -371,7 +375,7 @@ private fun ExerciseCard(
                     Row(Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                "Suggested: " + if (suggestion.weight > 0) "${Format.weight(suggestion.weight)} × ${suggestion.reps}" else "${suggestion.reps} reps",
+                                "Suggested: " + Format.setLong(suggestion.weight, suggestion.reps),
                                 style = MaterialTheme.typography.titleSmall,
                             )
                             Text(suggestion.reason, style = MaterialTheme.typography.bodySmall)
@@ -387,7 +391,10 @@ private fun ExerciseCard(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    NumberStepper(weight, { weight = it }, "kg", step = exercise?.weightIncrement ?: 2.5, decimal = true, modifier = Modifier.weight(1f))
+                    NumberStepper(
+                        weight, { weight = it }, if (assisted) "Assist kg" else "kg",
+                        step = exercise?.weightIncrement ?: 2.5, decimal = true, modifier = Modifier.weight(1f),
+                    )
                     NumberStepper(reps, { reps = it }, "reps", step = 1.0, decimal = false, modifier = Modifier.weight(1f))
                 }
                 if (exercise?.isBarbell == true && parsedWeight != null && parsedWeight > 0) {
@@ -396,7 +403,7 @@ private fun ExerciseCard(
                 }
                 Button(
                     onClick = {
-                        onLog(parsedWeight ?: 0.0, parsedReps ?: 0)
+                        onLog(loggedWeight ?: 0.0, parsedReps ?: 0)
                         if (sets.size + 1 >= target) expanded = false
                     },
                     enabled = canLog,
@@ -452,6 +459,7 @@ private fun ExerciseCard(
     editingSet?.let { set ->
         SetEditDialog(
             set = set,
+            assisted = assisted,
             onSave = { onUpdateSet(it); editingSet = null },
             onDelete = { onDeleteSet(set); editingSet = null },
             onDismiss = { editingSet = null },
@@ -555,7 +563,7 @@ private fun SetRow(number: Int, set: LoggedSet, isRecord: Boolean, isExtra: Bool
             }
         }
         Text(
-            if (set.weight > 0) "${Format.weight(set.weight)} × ${set.reps}" else "${set.reps} reps",
+            Format.setLong(set.weight, set.reps),
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.weight(1f),
@@ -574,8 +582,14 @@ private fun SetRow(number: Int, set: LoggedSet, isRecord: Boolean, isExtra: Bool
 }
 
 @Composable
-private fun SetEditDialog(set: LoggedSet, onSave: (LoggedSet) -> Unit, onDelete: () -> Unit, onDismiss: () -> Unit) {
-    var weight by remember { mutableStateOf(if (set.weight > 0) Format.number(set.weight) else "") }
+private fun SetEditDialog(
+    set: LoggedSet,
+    assisted: Boolean,
+    onSave: (LoggedSet) -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var weight by remember { mutableStateOf(if (set.weight != 0.0) Format.number(abs(set.weight)) else "") }
     var reps by remember { mutableStateOf(set.reps.toString()) }
     val parsedWeight = if (weight.isBlank()) 0.0 else Format.parseDecimal(weight)
     val parsedReps = reps.toIntOrNull()
@@ -584,14 +598,14 @@ private fun SetEditDialog(set: LoggedSet, onSave: (LoggedSet) -> Unit, onDelete:
         title = { Text("Edit set") },
         text = {
             Column(Modifier.widthIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                NumberStepper(weight, { weight = it }, "kg", step = 2.5, decimal = true)
+                NumberStepper(weight, { weight = it }, if (assisted) "Assist kg" else "kg", step = 2.5, decimal = true)
                 NumberStepper(reps, { reps = it }, "reps", step = 1.0, decimal = false)
                 TextButton(onClick = onDelete) { Text("Delete set", color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(set.copy(weight = parsedWeight ?: 0.0, reps = parsedReps ?: 0)) },
+                onClick = { onSave(set.copy(weight = (parsedWeight ?: 0.0).let { if (assisted) -it else it }, reps = parsedReps ?: 0)) },
                 enabled = parsedWeight != null && parsedReps != null && parsedReps > 0,
             ) { Text("Save") }
         },

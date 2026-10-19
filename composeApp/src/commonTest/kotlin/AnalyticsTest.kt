@@ -98,6 +98,22 @@ class AnalyticsTest {
     }
 
     @Test
+    fun effectiveLoadUsesBodyWeightAtTheTime() {
+        val sessions = mapOf("s1" to session("s1", day(2026, 10, 1)), "s2" to session("s2", day(2026, 10, 10)))
+        val weights = listOf(
+            models.BodyWeightEntry("w1", day(2026, 9, 28), 82.0),
+            models.BodyWeightEntry("w2", day(2026, 10, 8), 80.0),
+        )
+        val sets = listOf(set("a", "s1", "ap", -4.5, 8), set("b", "s2", "ap", -2.0, 8), set("c", "s2", "bench", 60.0, 5))
+        val effective = Analytics.withEffectiveLoad(sets, sessions, weights)
+        assertEquals(listOf(77.5, 78.0, 60.0), effective.map { it.weight })
+        // Without body weight nothing changes.
+        assertEquals(sets, Analytics.withEffectiveLoad(sets, sessions, emptyList()))
+        // Before the first entry, the earliest entry is used.
+        assertEquals(82.0, Analytics.bodyWeightAt(0, weights))
+    }
+
+    @Test
     fun setsPerMuscleGroup() {
         val exercises = listOf(Exercise("b", "Bench", "Chest"), Exercise("s", "Squat", "Quads"))
         val sets = listOf(set("1", "s", "b", 1.0, 1), set("2", "s", "b", 1.0, 1), set("3", "s", "s", 1.0, 1), set("4", "s", "?", 1.0, 1))

@@ -133,7 +133,7 @@ fun ProgressScreen(repository: WorkoutRepository, syncIndicator: @Composable () 
                 }
             }
             val exerciseSection = @Composable { mod: Modifier ->
-                ExerciseProgressCard(mod, validSets, sessionsById, exercises, ratings, cutoff, bodyWeights.lastOrNull()?.weight)
+                ExerciseProgressCard(mod, validSets, sessionsById, exercises, ratings, cutoff, bodyWeights)
             }
             if (wide) {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -191,8 +191,9 @@ private fun ExerciseProgressCard(
     exercises: List<Exercise>,
     ratings: List<ExerciseRating>,
     cutoff: Long,
-    bodyWeight: Double?,
+    bodyWeights: List<BodyWeightEntry>,
 ) {
+    val bodyWeight = bodyWeights.lastOrNull()?.weight
     // Exercises with data, most trained first.
     val trained = remember(sets, exercises) {
         val counts = sets.groupingBy { it.exerciseId }.eachCount()
@@ -220,22 +221,40 @@ private fun ExerciseProgressCard(
             }
         }
 
-        val history = remember(sets, sessionsById, selected.id) { Analytics.exerciseHistory(selected.id, sets, sessionsById) }
+        // Assisted exercises are charted as effective load (body weight − assistance) when body weight is known.
+        val history = remember(sets, sessionsById, selected.id, selected.loadType, bodyWeights) {
+            val source = if (selected.isAssisted) Analytics.withEffectiveLoad(sets, sessionsById, bodyWeights) else sets
+            Analytics.exerciseHistory(selected.id, source, sessionsById)
+        }
+        if (selected.isAssisted) {
+            Text(
+                if (bodyWeights.isEmpty()) "Assisted exercise: log your body weight to chart effective load (body weight − assistance)."
+                else "Assisted exercise: shown as effective load = body weight − assistance.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         val ratingBySession = remember(ratings, selected.id) {
             ratings.filter { it.exerciseId == selected.id }.associate { it.sessionId to it.rating }
         }
         val visible = history.filter { it.date >= cutoff }
         val unit = if (metric == ProgressMetric.MAX_REPS) "reps" else "kg"
-        val visibleValues = visible.map { Triple(it.date, metric.valueOf(it), ratingBySession[it.sessionId]) }.filter { it.second > 0 }
+        // Negative top weights are assistance (assisted exercise without body weight logged).
+        val visibleValues = visible.map { Triple(it.date, metric.valueOf(it), ratingBySession[it.sessionId]) }
+            .filter { it.second > 0 || (it.second < 0 && metric == ProgressMetric.TOP_WEIGHT) }
         val values = visibleValues.map { it.first to it.second }
 
         if (values.isEmpty()) {
-            Text("No ${metric.label.lowercase()} data for ${selected.name} in this period.")
+            Text(
+                "No ${metric.label.lowercase()} data for ${selected.name} in this period." +
+                    if (selected.isAssisted && bodyWeights.isEmpty()) " Choose Top weight to see your assistance over time." else "",
+            )
         } else {
             LineChart(
                 points = visibleValues.map { (date, value, rating) ->
                     val feel = rating?.let { " · ${it.label}" }.orEmpty()
-                    ChartPoint(date, value, "${Format.date(date)}: ${Format.number(value, 1)} $unit$feel")
+                    val shown = if (unit == "kg" && value < 0) Format.load(value) else "${Format.number(value, 1)} $unit"
+                    ChartPoint(date, value, "${Format.date(date)}: $shown$feel")
                 },
                 yLabel = { Format.compact(it) },
                 xLabel = { Format.shortDate(Format.localDate(it)) },

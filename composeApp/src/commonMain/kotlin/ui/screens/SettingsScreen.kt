@@ -129,7 +129,7 @@ fun SettingsScreen(
         }
 
         SectionCard("About") {
-            Text("Workout Tracker 1.3.0", style = MaterialTheme.typography.bodyMedium)
+            Text("Workout Tracker 1.4.0", style = MaterialTheme.typography.bodyMedium)
             Text(
                 "Weights are in kg. Estimated 1RM uses the Epley formula: weight × (1 + reps / 30).",
                 style = MaterialTheme.typography.bodySmall,

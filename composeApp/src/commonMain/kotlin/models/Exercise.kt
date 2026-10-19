@@ -19,4 +19,8 @@ data class Exercise(
     val isBarbell: Boolean = false,
     /** Permanent setup note, e.g. "seat height 4, wide grip". */
     val setupNote: String = "",
-)
+    /** Normal weight, or machine assistance (see [LoadType]). */
+    val loadType: LoadType = LoadType.WEIGHT,
+) {
+    val isAssisted: Boolean get() = loadType == LoadType.ASSISTED
+}

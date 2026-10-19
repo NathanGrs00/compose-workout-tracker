@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import models.Exercise
+import models.LoadType
 import models.ExerciseRating
 import models.Rating
 import models.LoggedSet
@@ -20,6 +21,7 @@ import models.WorkoutSession
 import models.starterExercises
 import analytics.Supersets
 import models.starterBarbellExercises
+import models.starterAssistedExercises
 import models.SessionNote
 import models.BodyWeightEntry
 import repository.mappers.toSessionNote
@@ -66,9 +68,11 @@ class WorkoutRepository(
         restSeconds: Int = 90,
         isBarbell: Boolean = false,
         setupNote: String = "",
+        loadType: LoadType = LoadType.WEIGHT,
     ): Exercise {
         val exercise = Exercise(
             newId(), name.trim(), muscleGroup, repMin, repMax, weightIncrement, targetSets, restSeconds, isBarbell, setupNote.trim(),
+            loadType,
         )
         writeExercise(exercise, previousUpdatedAt = null, deleted = false)
         changed()
@@ -93,7 +97,7 @@ class WorkoutRepository(
             exercise.id, exercise.name, exercise.muscleGroup,
             repMin.toLong(), exercise.repMax.coerceAtLeast(repMin).toLong(), exercise.weightIncrement.coerceAtLeast(0.25),
             exercise.targetSets.coerceAtLeast(1).toLong(), exercise.restSeconds.coerceAtLeast(0).toLong(),
-            if (exercise.isBarbell) 1L else 0L, exercise.setupNote.trim(),
+            if (exercise.isBarbell && !exercise.isAssisted) 1L else 0L, exercise.setupNote.trim(), exercise.loadType.name,
             editTime(previousUpdatedAt), if (deleted) 1 else 0, 1,
         )
     }
@@ -103,7 +107,12 @@ class WorkoutRepository(
         val existing = db.exerciseQueries.selectActive().executeAsList().map { it.name.lowercase() }.toSet()
         db.transaction {
             starterExercises.filter { it.first.lowercase() !in existing }.forEach { (name, group) ->
-                writeExercise(Exercise(newId(), name, group, isBarbell = name in starterBarbellExercises), previousUpdatedAt = null, deleted = false)
+                val exercise = Exercise(
+                    newId(), name, group,
+                    isBarbell = name in starterBarbellExercises,
+                    loadType = if (name in starterAssistedExercises) LoadType.ASSISTED else LoadType.WEIGHT,
+                )
+                writeExercise(exercise, previousUpdatedAt = null, deleted = false)
             }
         }
         changed()

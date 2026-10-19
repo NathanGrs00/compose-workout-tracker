@@ -6,6 +6,7 @@ import models.Rating
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ProgressionTest {
     private val bench = Exercise("bench", "Bench", "Chest", repMin = 8, repMax = 12, weightIncrement = 2.5)
@@ -130,6 +131,46 @@ class ProgressionTest {
         val last = session("s1", 100, 80.0 to 9, 80.0 to 9, 80.0 to 8)
         val s = Progression.suggest(bench.copy(targetSets = 3), listOf(last), mapOf("s1" to Rating.OKAY))!!
         assertEquals(80.0, s.weight)
+    }
+
+    private val assisted = Exercise("ap", "Assisted Pull-up", "Lats", repMin = 6, repMax = 10, weightIncrement = 2.5, loadType = models.LoadType.ASSISTED)
+
+    @Test
+    fun assistedTopOfRangeReducesAssistance() {
+        val last = session("s1", 100, -4.5 to 10, -4.5 to 10, -4.5 to 10)
+        val s = Progression.suggest(assisted, listOf(last), mapOf("s1" to Rating.GOOD))!!
+        assertEquals(-2.0 to 6, s.weight to s.reps)
+        assertTrue("reduce assistance to 2 kg" in s.reason, s.reason)
+    }
+
+    @Test
+    fun assistedEndsAtNoAssistance() {
+        val last = session("s1", 100, -2.0 to 10, -2.0 to 10, -2.0 to 10)
+        val s = Progression.suggest(assisted, listOf(last), mapOf("s1" to Rating.OKAY))!!
+        assertEquals(0.0, s.weight)
+        assertTrue("without assistance" in s.reason, s.reason)
+        // Once unassisted, it progresses by reps like a bodyweight exercise.
+        val unassisted = session("s2", 200, 0.0 to 5, 0.0 to 4)
+        assertEquals(0.0 to 6, Progression.suggest(assisted, listOf(unassisted), emptyMap())!!.let { it.weight to it.reps })
+    }
+
+    @Test
+    fun assistedBadMeansMoreAssistance() {
+        val last = session("s1", 100, -4.5 to 5, -4.5 to 4)
+        val s = Progression.suggest(assisted, listOf(last), mapOf("s1" to Rating.BAD))!!
+        assertEquals(-7.0 to 6, s.weight to s.reps)
+        val twice = Progression.suggest(
+            assisted, listOf(session("s2", 200, -4.5 to 7), session("s1", 100, -4.5 to 7)), mapOf("s1" to Rating.BAD, "s2" to Rating.BAD),
+        )!!
+        assertEquals(-9.5, twice.weight)
+    }
+
+    @Test
+    fun assistedSameAssistanceWording() {
+        val last = session("s1", 100, -4.5 to 8, -4.5 to 7)
+        val s = Progression.suggest(assisted, listOf(last), mapOf("s1" to Rating.GOOD))!!
+        assertEquals(-4.5 to 8, s.weight to s.reps)
+        assertTrue("same assistance" in s.reason, s.reason)
     }
 
     @Test
