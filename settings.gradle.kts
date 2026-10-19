@@ -1,4 +1,4 @@
-rootProject.name = "compose-workout-tracker"
+rootProject.name = "repvane"
 
 pluginManagement {
     repositories {

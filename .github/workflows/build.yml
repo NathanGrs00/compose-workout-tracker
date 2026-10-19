@@ -24,7 +24,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: workout-tracker-android
+          name: repvane-android
           path: composeApp/build/outputs/apk/release/*.apk
       - name: Upload screenshots
         if: always()
@@ -53,7 +53,7 @@ jobs:
       - name: Upload MSI
         uses: actions/upload-artifact@v4
         with:
-          name: workout-tracker-windows
+          name: repvane-windows
           path: composeApp/build/compose/binaries/main/msi/*.msi
 
   # Publishes a GitHub Release named after versionName (e.g. v1.1.0) with the APK and the Windows installer.
@@ -89,14 +89,14 @@ jobs:
         if: steps.version.outputs.exists == 'false'
         run: |
           mkdir release
-          cp artifacts/workout-tracker-android/*.apk release/WorkoutTracker.apk
-          cp artifacts/workout-tracker-windows/*.msi "release/WorkoutTracker-${{ steps.version.outputs.version }}.msi"
+          cp artifacts/repvane-android/*.apk release/Repvane.apk
+          cp artifacts/repvane-windows/*.msi "release/Repvane-${{ steps.version.outputs.version }}.msi"
           ls -l release
       - uses: softprops/action-gh-release@v2
         if: steps.version.outputs.exists == 'false'
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: Workout Tracker ${{ steps.version.outputs.tag }}
+          name: Repvane ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           files: release/*

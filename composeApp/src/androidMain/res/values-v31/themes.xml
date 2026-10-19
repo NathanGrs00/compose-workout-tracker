@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ system splash screen: the Repvane mark on navy. -->
+    <style name="Theme.Repvane" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/repvane_navy</item>
+        <item name="android:windowSplashScreenBackground">@color/repvane_navy</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/repvane_navy</item>
+    </style>
+</resources>

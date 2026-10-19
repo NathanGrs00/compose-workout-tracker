@@ -112,8 +112,8 @@ android {
         applicationId = "com.nathan.workouttracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.4.0"
+        versionCode = 6
+        versionName = "1.5.0"
     }
     signingConfigs {
         // A fixed key committed to the repo, so every build (local or CI) can be installed as an update
@@ -153,9 +153,9 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
-            packageName = "WorkoutTracker"
-            packageVersion = "1.4.0"
-            description = "Workout tracker with progress analytics"
+            packageName = "Repvane"
+            packageVersion = "1.5.0"
+            description = "Repvane: workout tracker with smart progression and analytics"
             modules("java.sql")
             windows {
                 menu = true

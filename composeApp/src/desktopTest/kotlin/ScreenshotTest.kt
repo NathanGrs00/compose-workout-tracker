@@ -1,3 +1,4 @@
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -106,5 +107,7 @@ class ScreenshotTest {
         // Start screen (no workout in progress)
         runBlocking { repo.inProgressSession.first()?.let { repo.deleteSession(it.id) } }
         render("phone-workout-start", 412, 900) { WorkoutScreen(repo, {}, {}) }
+        render("splash", 412, 900) { ui.brand.SplashScreen() }
+        render("app-icon", 256, 256) { ui.brand.RepvaneMark(size = 256.dp, background = true) }
     }
 }
