@@ -24,6 +24,7 @@ data class Suggestion(
  * - Not rated → treated as Okay.
  *
  * Working sets are the sets at the session's top weight. Bodyweight exercises (weight 0) progress by reps only.
+ * Assisted exercises store assistance as a negative weight, so progressing means less assistance, down to none.
  */
 object Progression {
 
@@ -45,43 +46,54 @@ object Progression {
         val bestReps = working.maxOf { it.reps }
         val feel = rating?.label?.lowercase()?.let { " and it felt $it" }.orEmpty()
 
-        if (topWeight <= 0) {
+        val assisted = exercise.isAssisted
+        // Bodyweight: plain bodyweight exercises, or an assisted exercise already done without assistance.
+        if (topWeight == 0.0 || (topWeight < 0 && !assisted)) {
             return when (rating) {
                 Rating.BAD -> Suggestion(0.0, lowestReps, "Felt bad last time → repeat $lowestReps reps")
                 else -> Suggestion(0.0, bestReps + 1, "Bodyweight: aim for one more rep than your best ($bestReps)")
             }
         }
 
-        val w = Format.number(topWeight)
+        // For assisted exercises the weight is negative (−assistance): "heavier" means less assistance.
+        val heavier = if (assisted) (topWeight + step).coerceAtMost(0.0) else topWeight + step
+        val progressText = when {
+            !assisted -> "add ${Format.number(step)} kg"
+            heavier == 0.0 -> "try it without assistance"
+            else -> "reduce assistance to ${Format.number(-heavier)} kg"
+        }
+        val same = if (assisted) "same assistance" else "same weight"
         return when {
             rating == Rating.BAD && previousRating == Rating.BAD -> {
-                val lighter = roundToStep(topWeight * 0.9, step).coerceAtMost(topWeight - step).coerceAtLeast(step)
-                Suggestion(lighter, repMin, "Bad twice in a row → drop ~10% to ${Format.number(lighter)} kg and rebuild")
+                val lighter = if (assisted) {
+                    topWeight - 2 * step
+                } else {
+                    roundToStep(topWeight * 0.9, step).coerceAtMost(topWeight - step).coerceAtLeast(step)
+                }
+                val what = if (assisted) "more assistance (${Format.load(lighter)})" else "drop ~10% to ${Format.number(lighter)} kg"
+                Suggestion(lighter, repMin, "Bad twice in a row → $what and rebuild")
             }
             rating == Rating.BAD && lowestReps < repMin -> {
-                val lighter = (topWeight - step).coerceAtLeast(step)
-                Suggestion(lighter, repMin, "Felt bad and below $repMin reps → go down to ${Format.number(lighter)} kg")
+                val lighter = if (assisted) topWeight - step else (topWeight - step).coerceAtLeast(step)
+                val what = if (assisted) "use more assistance (${Format.load(lighter)})" else "go down to ${Format.number(lighter)} kg"
+                Suggestion(lighter, repMin, "Felt bad and below $repMin reps → $what")
             }
-            rating == Rating.BAD -> Suggestion(topWeight, lowestReps, "Felt bad last time → repeat $w kg × $lowestReps")
+            rating == Rating.BAD -> Suggestion(topWeight, lowestReps, "Felt bad last time → repeat ${Format.setLong(topWeight, lowestReps)}")
             last.sets.size > exercise.targetSets.coerceAtLeast(1) -> {
-                val heavier = topWeight + step
                 val target = lowestReps.coerceIn(repMin, repMax)
                 Suggestion(
                     heavier, target,
-                    "Did an extra set (${last.sets.size} of ${exercise.targetSets}) → energy left, add ${Format.number(step)} kg",
+                    "Did an extra set (${last.sets.size} of ${exercise.targetSets}) → energy left, $progressText",
                 )
             }
-            lowestReps >= repMax -> {
-                val heavier = topWeight + step
-                Suggestion(heavier, repMin, "Hit $repMax reps on every set$feel → add ${Format.number(step)} kg")
-            }
+            lowestReps >= repMax -> Suggestion(heavier, repMin, "Hit $repMax reps on every set$feel → $progressText")
             rating == Rating.GOOD -> {
                 val target = (lowestReps + 1).coerceIn(repMin, repMax)
-                Suggestion(topWeight, target, "Felt good → same weight, aim for $target reps")
+                Suggestion(topWeight, target, "Felt good → $same, aim for $target reps")
             }
             else -> {
                 val target = bestReps.coerceIn(repMin, repMax)
-                Suggestion(topWeight, target, "${if (rating == null) "Not rated" else "Felt okay"} → same weight, $target reps on every set")
+                Suggestion(topWeight, target, "${if (rating == null) "Not rated" else "Felt okay"} → $same, $target reps on every set")
             }
         }
     }

@@ -1,0 +1,2 @@
+-- Version 4 -> 5: assisted exercises (assistance is stored on sets as a negative weight).
+ALTER TABLE exercise ADD COLUMN load_type TEXT NOT NULL DEFAULT 'WEIGHT';

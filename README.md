@@ -22,6 +22,9 @@ It's built with Kotlin + Compose Multiplatform, so the same code runs on Android
 - **Weekly summary, rating trends and body weight** on the Progress tab: this week compared with last week,
   stalled exercises, a weekly "feel" score from your ratings, exercises often rated Bad, and a body weight chart.
   Body weight is also asked once a week when you open the Workout tab, and is used for strength relative to body weight.
+- **Assisted exercises.** Mark machines like the assisted pull-up as **Assisted** in the exercise editor and enter
+  the assistance (e.g. 4.5 kg). Suggestions reduce the assistance step by step until you do it without help.
+  With body weight logged, charts show the effective load (body weight − assistance).
 - **Fast logging.** Start from a routine (e.g. Push/Pull/Legs) or an empty workout. Weight and reps are pre-filled from your last set or from last time. Use the big −/+ buttons, then tap **Log set**. A rest timer runs between sets.
 - **Progress & analysis:**
   - estimated 1RM, top weight, volume and max-reps charts per exercise
@@ -100,7 +103,8 @@ and a weight step (default 2.5 kg), all editable in **Library → Exercises**. B
 | Bad and below the min reps | One weight step lighter |
 | Bad twice in a row | Drop about 10% and rebuild |
 
-Bodyweight exercises (logged with 0 kg) progress by reps.
+Bodyweight exercises (logged with 0 kg) progress by reps. For assisted exercises "add weight" means
+"reduce assistance" (and "go lighter" means more assistance), until no assistance is needed.
 
 > After updating the app, run `supabase/schema.sql` again. It adds any new columns and tables.
 > Until then, Settings shows "Supabase tables are out of date".

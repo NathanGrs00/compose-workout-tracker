@@ -31,6 +31,8 @@ alter table public.exercises add column if not exists rest_seconds integer not n
 -- Barbell lifts get a plate calculator and warm-ups; setup note e.g. "seat height 4"
 alter table public.exercises add column if not exists is_barbell boolean not null default false;
 alter table public.exercises add column if not exists setup_note text not null default '';
+-- WEIGHT or ASSISTED (assistance stored on sets as a negative weight)
+alter table public.exercises add column if not exists load_type text not null default 'WEIGHT';
 
 -- Routines / workout templates
 create table if not exists public.workout_days (

@@ -8,6 +8,7 @@ import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import models.BodyWeightEntry
 import models.Exercise
 import models.LoggedSet
 import models.WorkoutSession
@@ -193,6 +194,28 @@ object Analytics {
                     }
             }
         return records
+    }
+
+    /** Body weight at [time]: the latest entry at or before it, else the earliest one after it. */
+    fun bodyWeightAt(time: Long, entries: List<BodyWeightEntry>): Double? =
+        entries.lastOrNull { it.measuredAt <= time }?.weight ?: entries.minByOrNull { it.measuredAt }?.weight
+
+    /**
+     * Sets with assisted (negative) weights replaced by the effective load, body weight − assistance,
+     * using the body weight at the time of each workout. Unchanged without body weight entries.
+     */
+    fun withEffectiveLoad(
+        sets: List<LoggedSet>,
+        sessions: Map<String, WorkoutSession>,
+        bodyWeights: List<BodyWeightEntry>,
+    ): List<LoggedSet> {
+        if (bodyWeights.isEmpty()) return sets
+        return sets.map { set ->
+            if (set.weight >= 0) return@map set
+            val at = sessions[set.sessionId]?.startedAt ?: set.performedAt
+            val bodyWeight = bodyWeightAt(at, bodyWeights) ?: return@map set
+            set.copy(weight = (bodyWeight + set.weight).coerceAtLeast(0.0))
+        }
     }
 
     /** Earlier sessions of [exerciseId] before [currentSessionId], most recent first. */

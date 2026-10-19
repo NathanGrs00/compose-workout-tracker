@@ -10,6 +10,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import models.Exercise
+import models.LoadType
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import models.muscleGroups
 import ui.Format
 import ui.components.*
@@ -19,6 +24,7 @@ import viewmodel.ExerciseViewModel
  * Screen for adding a new exercise (or editing one when [existing] is given).
  * It includes form validation and uses reusable components.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddExerciseScreen(
     viewModel: ExerciseViewModel,
@@ -34,6 +40,7 @@ fun AddExerciseScreen(
     var targetSets by remember { mutableStateOf((existing?.targetSets ?: 3).toString()) }
     var restSeconds by remember { mutableStateOf((existing?.restSeconds ?: 90).toString()) }
     var isBarbell by remember { mutableStateOf(existing?.isBarbell ?: false) }
+    var loadType by remember { mutableStateOf(existing?.loadType ?: LoadType.WEIGHT) }
     var setupNote by remember { mutableStateOf(existing?.setupNote ?: "") }
 
     val min = repMin.toIntOrNull()
@@ -77,7 +84,31 @@ fun AddExerciseScreen(
             options = muscleGroups
         )
 
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text("Weight input", style = MaterialTheme.typography.titleSmall)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            SegmentedButton(
+                selected = loadType == LoadType.WEIGHT,
+                onClick = { loadType = LoadType.WEIGHT },
+                shape = SegmentedButtonDefaults.itemShape(0, 2),
+            ) { Text("Weight") }
+            SegmentedButton(
+                selected = loadType == LoadType.ASSISTED,
+                onClick = { loadType = LoadType.ASSISTED; isBarbell = false },
+                shape = SegmentedButtonDefaults.itemShape(1, 2),
+            ) { Text("Assisted") }
+        }
+        Text(
+            if (loadType == LoadType.ASSISTED) {
+                "Enter the machine's assistance in kg (e.g. 4.5). Less assistance counts as progress; " +
+                    "with body weight logged, charts show body weight − assistance."
+            } else {
+                "Enter the weight lifted in kg. Use 0 for bodyweight exercises."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        if (loadType == LoadType.WEIGHT) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Barbell exercise", style = MaterialTheme.typography.titleSmall)
                 Text(
@@ -164,13 +195,13 @@ fun AddExerciseScreen(
             text = "Save Exercise",
             onClick = {
                 if (existing == null) {
-                    viewModel.addExercise(Exercise("", name.trim(), muscleGroup, min!!, max!!, step!!, sets!!, rest!!, isBarbell, setupNote.trim()))
+                    viewModel.addExercise(Exercise("", name.trim(), muscleGroup, min!!, max!!, step!!, sets!!, rest!!, isBarbell, setupNote.trim(), loadType))
                 } else {
                     viewModel.updateExercise(
                         existing.copy(
                             name = name.trim(), muscleGroup = muscleGroup, repMin = min!!, repMax = max!!,
                             weightIncrement = step!!, targetSets = sets!!, restSeconds = rest!!,
-                            isBarbell = isBarbell, setupNote = setupNote.trim(),
+                            isBarbell = isBarbell, setupNote = setupNote.trim(), loadType = loadType,
                         )
                     )
                 }

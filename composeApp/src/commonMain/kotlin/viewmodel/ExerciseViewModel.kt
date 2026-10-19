@@ -33,6 +33,7 @@ class ExerciseViewModel(private val repository: WorkoutRepository) {
         repository.addExercise(
             exercise.name, exercise.muscleGroup, exercise.repMin, exercise.repMax,
             exercise.weightIncrement, exercise.targetSets, exercise.restSeconds, exercise.isBarbell, exercise.setupNote,
+            exercise.loadType,
         )
     }
 

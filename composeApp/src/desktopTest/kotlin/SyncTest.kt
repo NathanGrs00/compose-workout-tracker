@@ -254,6 +254,8 @@ class RatingAndMigrationTest {
             assertEquals(3 to 90, bench.targetSets to bench.restSeconds)
             // v3 -> v4 marks known barbell lifts.
             assertTrue(bench.isBarbell)
+            // v4 -> v5 adds the load type.
+            assertEquals(models.LoadType.WEIGHT, bench.loadType)
             repo.updateExercise(bench.copy(targetSets = 4, restSeconds = 150))
             assertEquals(4 to 150, repo.exercises.first().single().let { it.targetSets to it.restSeconds })
             val session = repo.startSession(null)
@@ -303,11 +305,25 @@ class NotesSupersetsBodyWeightTest {
     }
 
     @Test
+    fun assistedExerciseSyncs() = runBlocking {
+        val remote = FakeRemote()
+        val phone = Device(remote, startClock = 1_000)
+        val pc = Device(remote, startClock = 50_000)
+        val ap = phone.repo.addExercise("Pull-up Machine", "Lats", loadType = models.LoadType.ASSISTED)
+        val session = phone.repo.startSession(null)
+        phone.repo.logSet(session.id, ap.id, -4.5, 8)
+        phone.sync.syncNow(); pc.sync.syncNow()
+        assertEquals(models.LoadType.ASSISTED, pc.repo.exercises.first().single().loadType)
+        assertEquals(-4.5, pc.repo.allSets.first().single().weight)
+    }
+
+    @Test
     fun starterBarbellLiftsAreMarked() = runBlocking {
         val phone = Device(FakeRemote(), startClock = 1_000)
         phone.repo.addStarterExercises()
         val byName = phone.repo.exercises.first().associateBy { it.name }
         assertTrue(byName.getValue("Squat").isBarbell)
         assertTrue(!byName.getValue("Lateral Raise").isBarbell)
+        assertTrue(byName.getValue("Assisted Pull-up").isAssisted)
     }
 }

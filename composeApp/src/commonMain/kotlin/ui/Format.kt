@@ -25,8 +25,22 @@ object Format {
 
     fun weight(kg: Double): String = "${number(kg)} kg"
 
-    /** Short set description, e.g. "60 kg × 8" or "12 reps" for bodyweight. */
-    fun set(weight: Double, reps: Int): String = if (weight > 0) "${number(weight)} × $reps" else "$reps reps"
+    /** Short set description: "60 × 8", "4.5 assist × 8" (assisted, negative weight) or "12 reps" (bodyweight). */
+    fun set(weight: Double, reps: Int): String = when {
+        weight > 0 -> "${number(weight)} × $reps"
+        weight < 0 -> "${number(-weight)} assist × $reps"
+        else -> "$reps reps"
+    }
+
+    /** Load description: "60 kg", "4.5 kg assist" or "bodyweight". */
+    fun load(weight: Double): String = when {
+        weight > 0 -> weight(weight)
+        weight < 0 -> "${number(-weight)} kg assist"
+        else -> "bodyweight"
+    }
+
+    /** Full set description: "60 kg × 8", "4.5 kg assist × 8" or "12 reps". */
+    fun setLong(weight: Double, reps: Int): String = if (weight == 0.0) "$reps reps" else "${load(weight)} × $reps"
 
     /** 12500.0 -> "12.5k" */
     fun compact(value: Double): String = when {

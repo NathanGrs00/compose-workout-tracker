@@ -25,6 +25,15 @@ class FormatTest {
     }
 
     @Test
+    fun assistedSets() {
+        assertEquals("4.5 assist × 8", Format.set(-4.5, 8))
+        assertEquals("4.5 kg assist × 8", Format.setLong(-4.5, 8))
+        assertEquals("80 kg × 8", Format.setLong(80.0, 8))
+        assertEquals("12 reps", Format.setLong(0.0, 12))
+        assertEquals("bodyweight", Format.load(0.0))
+    }
+
+    @Test
     fun durations() {
         assertEquals("0:05", Format.duration(5_000))
         assertEquals("1:05:09", Format.duration(3_909_000))

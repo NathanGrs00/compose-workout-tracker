@@ -1,6 +1,7 @@
 -- rep_min/rep_max: target rep range; weight_increment: weight step used for suggestions.
 -- target_sets: planned sets per workout; rest_seconds: rest between sets.
 -- is_barbell: show plate calculator + warm-ups; setup_note: permanent note (e.g. seat height).
+-- load_type: WEIGHT, or ASSISTED (machine assistance, stored on sets as a negative weight).
 -- Every synced table has: updated_at (client ms), deleted (soft delete), dirty (pending upload).
 CREATE TABLE exercise (
     id TEXT NOT NULL PRIMARY KEY,
@@ -15,7 +16,8 @@ CREATE TABLE exercise (
     target_sets INTEGER NOT NULL DEFAULT 3,
     rest_seconds INTEGER NOT NULL DEFAULT 90,
     is_barbell INTEGER NOT NULL DEFAULT 0,
-    setup_note TEXT NOT NULL DEFAULT ''
+    setup_note TEXT NOT NULL DEFAULT '',
+    load_type TEXT NOT NULL DEFAULT 'WEIGHT'
 );
 
 selectActive:
@@ -28,8 +30,8 @@ selectDirty:
 SELECT * FROM exercise WHERE dirty = 1;
 
 upsert:
-INSERT OR REPLACE INTO exercise(id, name, muscle_group, rep_min, rep_max, weight_increment, target_sets, rest_seconds, is_barbell, setup_note, updated_at, deleted, dirty)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO exercise(id, name, muscle_group, rep_min, rep_max, weight_increment, target_sets, rest_seconds, is_barbell, setup_note, load_type, updated_at, deleted, dirty)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 markClean:
 UPDATE exercise SET dirty = 0 WHERE id = ? AND updated_at = ?;

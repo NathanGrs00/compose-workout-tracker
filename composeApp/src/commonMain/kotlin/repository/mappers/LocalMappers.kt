@@ -1,6 +1,7 @@
 package repository.mappers
 
 import models.Exercise
+import models.LoadType
 import models.ExerciseRating
 import models.Rating
 import models.LoggedSet
@@ -32,6 +33,7 @@ fun ExerciseRow.toExercise() = Exercise(
     restSeconds = rest_seconds.toInt(),
     isBarbell = is_barbell != 0L,
     setupNote = setup_note,
+    loadType = LoadType.fromName(load_type),
 )
 
 fun SessionNoteRow.toSessionNote() = SessionNote(sessionId = session_id, exerciseId = exercise_id, note = note)

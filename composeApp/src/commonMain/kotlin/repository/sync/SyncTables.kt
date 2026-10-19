@@ -48,7 +48,7 @@ fun syncTables(db: WorkoutDatabase): List<SyncTable<*>> = listOf(
                 ExerciseDto(
                     it.id, it.name, it.muscle_group, it.rep_min.toInt(), it.rep_max.toInt(), it.weight_increment,
                     it.target_sets.toInt(), it.rest_seconds.toInt(), it.updated_at, it.deleted.bool(),
-                    isBarbell = it.is_barbell.bool(), setupNote = it.setup_note,
+                    isBarbell = it.is_barbell.bool(), setupNote = it.setup_note, loadType = it.load_type,
                 )
             }
         },
@@ -57,7 +57,7 @@ fun syncTables(db: WorkoutDatabase): List<SyncTable<*>> = listOf(
         writeClean = {
             db.exerciseQueries.upsert(
                 it.id, it.name, it.muscleGroup, it.repMin.toLong(), it.repMax.toLong(), it.weightIncrement,
-                it.targetSets.toLong(), it.restSeconds.toLong(), it.isBarbell.long(), it.setupNote,
+                it.targetSets.toLong(), it.restSeconds.toLong(), it.isBarbell.long(), it.setupNote, it.loadType,
                 it.updatedAt, it.deleted.long(), 0,
             )
         },

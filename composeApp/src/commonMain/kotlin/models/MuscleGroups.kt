@@ -11,6 +11,9 @@ val starterBarbellExercises = setOf(
     "Bench Press", "Overhead Press", "Barbell Row", "Deadlift", "Squat", "Romanian Deadlift", "Barbell Curl", "Hip Thrust",
 )
 
+/** Starter exercises done on an assistance machine. */
+val starterAssistedExercises = setOf("Assisted Pull-up")
+
 /** A starter library so a fresh install is usable straight away. */
 val starterExercises = listOf(
     "Bench Press" to "Chest",
@@ -21,6 +24,7 @@ val starterExercises = listOf(
     "Face Pull" to "Rear Delts",
     "Pull-up" to "Lats",
     "Lat Pulldown" to "Lats",
+    "Assisted Pull-up" to "Lats",
     "Barbell Row" to "Upper Back",
     "Seated Cable Row" to "Upper Back",
     "Deadlift" to "Lower Back",

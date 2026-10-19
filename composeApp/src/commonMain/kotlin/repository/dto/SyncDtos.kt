@@ -25,6 +25,7 @@ data class ExerciseDto(
     @SerialName("server_updated_at") val serverUpdatedAt: Long? = null,
     @SerialName("is_barbell") val isBarbell: Boolean = false,
     @SerialName("setup_note") val setupNote: String = "",
+    @SerialName("load_type") val loadType: String = "WEIGHT",
 )
 
 @Serializable
