@@ -86,6 +86,8 @@ Then open **Settings** in the app and paste the same URL and key. To build it yo
 
 Or open the project in Android Studio and run the `composeApp` configuration.
 The APK is signed with a fixed key (`composeApp/release.keystore`), so new builds install as an update over the old one.
+Version 1.5.0 changed the app ID to `app.repvane`, so it installs as a new app next to older "Workout Tracker" installs:
+make sure the old app shows "Synced", install Repvane, enter your Supabase settings, then uninstall the old app.
 Versions built before 1.1.0 used a random key. Uninstall those once, then reinstall and enter the Supabase settings again: your synced data downloads back.
 
 ## How suggestions work

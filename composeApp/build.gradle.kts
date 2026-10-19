@@ -105,11 +105,11 @@ sqldelight {
 }
 
 android {
-    namespace = "com.nathan.workouttracker"
+    namespace = "app.repvane"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.nathan.workouttracker"
+        applicationId = "app.repvane"
         minSdk = 26
         targetSdk = 35
         versionCode = 6
